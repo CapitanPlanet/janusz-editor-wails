@@ -1,0 +1,239 @@
+import { defineStore } from 'pinia'
+
+// DODAJ ListFiles DO IMPORTU
+import { 
+  CreateProject, 
+  ReadJSON, 
+  WriteJSON,
+  SelectFolder,
+  ListFiles 
+} from '../../wailsjs/go/main/App'
+
+interface Choice {
+  Text: string
+  Next: string
+  Cebula?: number
+  Wstyd?: number
+  Portfel?: number
+  Reputacja?: number
+  ReactionText?: string
+  ReactionImage?: string
+  SoundFile?: string
+  FlagsSet?: string[]
+  FlagsRequired?: string[]
+  MinPortfel?: number | null
+  KosztPortfel?: number | null
+  FailText?: string
+}
+
+interface Scene {
+  Id: string
+  SceneTitle?: string
+  Background?: string
+  Text?: string
+  Choices?: Choice[]
+  IsEndDay?: boolean
+  NextDay?: string
+  [key: string]: any
+}
+
+interface ProjectMeta {
+  gameName: string
+  author: string
+  version: string
+  engineVersion: string
+  startDay: string
+  startScene: string
+}
+
+export const useProjectStore = defineStore('project', {
+  state: () => ({
+    projectPath: null as string | null,
+    meta: null as ProjectMeta | null,
+    days: {} as Record<string, Scene[]>,
+    currentDay: 'day1' as string,
+    currentSceneId: null as string | null,
+    assets: {
+      images: [] as string[],
+      sounds: [] as string[]
+    },
+    saveStatus: ''
+  }),
+
+  getters: {
+    currentDayScenes: (state) => {
+      return state.days[state.currentDay] || []
+    },
+
+    currentScene: (state) => {
+      const scenes = state.days[state.currentDay] || []
+      return scenes.find((s: Scene) => s.Id === state.currentSceneId) || null
+    },
+
+    sceneIdsInCurrentDay: (state) => {
+      const scenes = state.days[state.currentDay] || []
+      return scenes.map((s: Scene) => s.Id)
+    },
+
+    dayFileList: (state) => Object.keys(state.days),
+
+    // DODAJ TE GETTERY
+    availableBackgrounds: (state) => state.assets.images,
+    availableSounds: (state) => state.assets.sounds
+  },
+
+  actions: {
+    // TWORZENIE - CAŁA LOGIKA W GO
+    async createProjectAtPath(fullProjectPath: string, gameName: string) {
+      try {
+        await CreateProject(fullProjectPath, gameName)
+        await this.loadProjectFromPath(fullProjectPath)
+        await this.scanAssets() // DODAJ TO
+        console.log('[STORE] Utworzono nowy projekt:', fullProjectPath)
+        return fullProjectPath
+      } catch (e) {
+        console.error('[STORE] Błąd tworzenia projektu:', e)
+        throw e
+      }
+    },
+
+    // ŁADOWANIE PROJEKTU Z DYSKU
+    async loadProjectFromPath(path: string) {
+      this.projectPath = path
+
+      try {
+        const metaRaw = await ReadJSON(`${path}/project.janproj`)
+        this.meta = JSON.parse(metaRaw)
+
+        const day1Raw = await ReadJSON(`${path}/Data/day1.json`)
+        this.days = {
+          day1: JSON.parse(day1Raw)
+        }
+
+        this.currentDay = this.meta.startDay || 'day1'
+        this.currentSceneId = this.meta.startScene || this.days[this.currentDay]?.[0]?.Id || null
+
+        await this.scanAssets()
+        console.log('[STORE] Załadowano projekt:', this.meta.gameName)
+        console.log('[STORE] Dni:', Object.keys(this.days))
+
+      } catch (e) {
+        console.error('[STORE] Błąd ładowania projektu:', e)
+        throw e
+      }
+    },
+
+    // SKANOWANIE ASSETÓW
+    async scanAssets() {
+      if (!this.projectPath) return
+      try {
+        const imagesJpg = await ListFiles(`${this.projectPath}/Assets/images`, '.jpg')
+        const imagesPng = await ListFiles(`${this.projectPath}/Assets/images`, '.png')
+        this.assets.images = [...imagesJpg,...imagesPng]
+        
+        const soundsMp3 = await ListFiles(`${this.projectPath}/Assets/sounds`, '.mp3')
+        const soundsWav = await ListFiles(`${this.projectPath}/Assets/sounds`, '.wav')
+        this.assets.sounds = [...soundsMp3,...soundsWav]
+        
+        console.log('[STORE] Zeskanowano teł:', this.assets.images)
+        console.log('[STORE] Zeskanowano dźwięków:', this.assets.sounds)
+      } catch (e) {
+        console.error('[STORE] Błąd skanowania assetów:', e)
+        this.assets.images = []
+        this.assets.sounds = []
+      }
+    },
+
+    // ZAPIS PROJEKTU
+    async saveProject() {
+      if (!this.projectPath ||!this.meta) return
+      this.saveStatus = 'Zapisywanie...'
+
+      try {
+        await WriteJSON(
+          `${this.projectPath}/project.janproj`,
+          JSON.stringify(this.meta, null, 2)
+        )
+
+        for (const dayFile of Object.keys(this.days)) {
+          await WriteJSON(
+            `${this.projectPath}/Data/${dayFile}.json`,
+            JSON.stringify(this.days[dayFile], null, 2)
+          )
+        }
+
+        this.saveStatus = 'Zapisano'
+        setTimeout(() => { this.saveStatus = '' }, 2000)
+      } catch (e) {
+        console.error('[STORE] Błąd zapisu:', e)
+        this.saveStatus = 'Błąd zapisu'
+      }
+    },
+
+    // RESZTA BEZ ZMIAN
+    addSceneToCurrentDay(sceneId?: string) {
+      const newId = sceneId || `scene_${Date.now()}`
+      const newScene: Scene = {
+        Id: newId,
+        SceneTitle: newId,
+        Background: '',
+        Text: '',
+        Choices: []
+      }
+      if (!this.days[this.currentDay]) this.days[this.currentDay] = []
+      this.days[this.currentDay].push(newScene)
+      this.currentSceneId = newId
+    },
+
+    duplicateScene(sceneId: string) {
+      const scenes = this.days[this.currentDay]
+      if (!scenes) return
+      const sceneToCopy = scenes.find((s: Scene) => s.Id === sceneId)
+      if (!sceneToCopy) return
+
+      const newScene = JSON.parse(JSON.stringify(sceneToCopy))
+      newScene.Id = `${sceneToCopy.Id}_copy_${Date.now()}`
+      newScene.SceneTitle = `${sceneToCopy.SceneTitle || sceneId} - Kopia`
+
+      const index = scenes.findIndex((s: Scene) => s.Id === sceneId)
+      scenes.splice(index + 1, 0, newScene)
+      this.currentSceneId = newScene.Id
+    },
+
+    deleteScene(sceneId: string) {
+      const scenes = this.days[this.currentDay]
+      if (!scenes || scenes.length <= 1) {
+        alert('Nie możesz usunąć ostatniej sceny w dniu')
+        return
+      }
+      const index = scenes.findIndex((s: Scene) => s.Id === sceneId)
+      if (index > -1) {
+        scenes.splice(index, 1)
+        if (this.currentSceneId === sceneId) {
+          this.currentSceneId = scenes[0]?.Id || null
+        }
+      }
+    },
+
+    updateCurrentScene(field: keyof Scene, value: any) {
+      if (!this.currentScene) return
+      this.currentScene[field] = value
+    },
+
+    addDay(dayId: string) {
+      if (this.days[dayId]) {
+        alert('Dzień o tej nazwie już istnieje')
+        return
+      }
+      this.days[dayId] = [{
+        Id: 'start',
+        SceneTitle: 'Start',
+        Background: '',
+        Text: 'Początek dnia',
+        Choices: []
+      }]
+      this.currentDay = dayId
+      this.currentSceneId = 'start'
+    }
+  }
+})
