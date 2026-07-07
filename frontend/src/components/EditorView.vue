@@ -5,6 +5,8 @@ import ScenesPanel from './ScenesPanel.vue'
 import ScenePreview from './ScenePreview.vue'
 import ChoicesPanel from './ChoicesPanel.vue'
 import { useProjectStore } from '../stores/projectStore'
+import tutorialBg from '../assets/tutorial_bg.jpg'
+
 
 const store = useProjectStore()
 const emit = defineEmits(['go-to-menu'])
@@ -51,6 +53,11 @@ async function saveProject() {
     <div class="bottom-bar">
       <button @click="saveProject" class="btn btn-primary">💾 Zapisz projekt</button>
       <button @click="emit('go-to-menu')" class="btn btn-secondary">📁 Menu</button>
+      <button @click="showTutorial = true">📖 Pokaż Tutorial</button>
+
+<Modal v-if="showTutorial">
+  <img :src="tutorialBg" style="width:100%" />
+</Modal>
     </div>
 
     <!-- TOAST -->

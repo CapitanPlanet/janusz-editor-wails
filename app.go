@@ -2,12 +2,18 @@ package main
 
 import (
 	"context"
+	"embed"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
+
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
+
+//go:embed templates
+var templatesFS embed.FS
 
 type App struct {
 	ctx context.Context
@@ -38,7 +44,7 @@ func (a *App) GetDefaultProjectPath() string {
 	return defaultPath
 }
 
-// TWORZENIE PROJEKTU
+// TWORZENIE PROJEKTU - JEDYNA WERSJA
 func (a *App) CreateProject(fullPath string, gameName string) error {
 	runtime.LogInfo(a.ctx, "[APP] Tworzę projekt: "+fullPath)
 	
@@ -56,13 +62,16 @@ func (a *App) CreateProject(fullPath string, gameName string) error {
 	if err := os.MkdirAll(filepath.Join(fullPath, "Assets", "sounds"), 0755); err!= nil {
 		return err
 	}
+	if err := os.MkdirAll(filepath.Join(fullPath, "Assets", "Backgrounds"), 0755); err!= nil {
+		return err
+	}
 
 	// 2. project.janproj
 	meta := map[string]interface{}{
 		"gameName": gameName,
 		"author": "",
 		"version": "1.0.0",
-		"engineVersion": "1.3.0",
+		"engineVersion":"2.0.0",
 		"startDay": "day1",
 		"startScene": "start",
 	}
@@ -77,14 +86,45 @@ func (a *App) CreateProject(fullPath string, gameName string) error {
 		{
 			"Id": "start",
 			"SceneTitle": "Początek",
-			"Background": "",
-			"Text": "Budzisz się. To jest początek Twojej gry o Januszu.",
+			"Background": "tutorial_bg.jpg", // <-- Domyślnie wrzucamy tutorial
+			"Text": "Witaj w Edytorze Janusza. To jest pierwsza scena Twojej gry. Kliknij Instrukcja Obsługi w menu głównym.",
 			"Choices": []interface{}{},
 		},
 	}
 	day1Bytes, _ := json.MarshalIndent(day1, "", " ")
 	if err := os.WriteFile(filepath.Join(fullPath, "Data", "day1.json"), day1Bytes, 0644); err!= nil {
 		return err
+	}
+
+	// 4. Kopiuj tutorial z templates - używamy embed
+	err := fs.WalkDir(templatesFS, "templates/Assets", func(path string, d fs.DirEntry, err error) error {
+		if err!= nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		
+		data, err := templatesFS.ReadFile(path)
+		if err!= nil {
+			runtime.LogWarning(a.ctx, "[APP] Nie mogę odczytać template: "+path)
+			return nil // nie przerywaj jak brakuje
+		}
+		
+		relPath, _ := filepath.Rel("templates/Assets", path)
+		destPath := filepath.Join(fullPath, "Assets", relPath)
+		os.MkdirAll(filepath.Dir(destPath), 0755)
+		
+		if err := os.WriteFile(destPath, data, 0644); err!= nil {
+			runtime.LogWarning(a.ctx, "[APP] Nie mogę skopiować: "+destPath)
+		} else {
+			runtime.LogInfo(a.ctx, "[APP] Skopiowano template: "+relPath)
+		}
+		return nil
+	})
+	
+	if err!= nil {
+		runtime.LogWarning(a.ctx, "[APP] Błąd kopiowania templates: "+err.Error())
 	}
 
 	runtime.LogInfo(a.ctx, "[APP] Projekt utworzony pomyślnie")
@@ -175,7 +215,6 @@ func (a *App) ListFiles(folderPath string, extension string) ([]string, error) {
 	for _, file := range files {
 		if!file.IsDir() && filepath.Ext(file.Name()) == extension {
 			name := file.Name()
-			name = name[:len(name)-len(extension)]
 			result = append(result, name)
 			runtime.LogDebug(a.ctx, "[APP] Znaleziono: "+name)
 		}

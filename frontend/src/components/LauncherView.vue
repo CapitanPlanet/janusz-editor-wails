@@ -3,10 +3,16 @@ import { ref, onMounted } from 'vue'
 import { SelectFolder, CreateProject, AddRecentProject, GetRecentProjects, GetDefaultProjectPath } from '../../wailsjs/go/main/App'
 import { useProjectStore } from '../stores/projectStore'
 
+// POPRAWIONE: bg.png na tło, tutorial_bg.jpg do modala
+import januszLogo from '../assets/janusz_menu_header.png'
+import bgImage from '../assets/bg.png'
+import tutorialImage from '../assets/tutorial_bg.jpg'
+
 const store = useProjectStore()
 
 const recentProjects = ref<string[]>([])
 const showNewProjectModal = ref(false)
+const showTutorialModal = ref(false)
 const newProjectName = ref('')
 const selectedFolder = ref('')
 const isCreating = ref(false)
@@ -91,22 +97,23 @@ async function openRecent(path: string) {
   }
 }
 
+function getProjectName(path: string): string {
+  return path.split('\\').pop() || path.split('/').pop() || path
+}
+
 onMounted(loadRecentProjects)
 </script>
 
 <template>
-  <div class="launcher">
+  <div class="launcher" :style="{ backgroundImage: `linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url(${bgImage})` }">
     <div class="launcher-content">
-      <img
-        src="/Assets/Backgrounds/janusz_menu_header.png"
-        alt="Janusz Menu Header"
-        class="menu-header"
-      />
+      <img :src="januszLogo" alt="Janusz Logo" class="menu-header" />
       <h1>Edytor Janusza V2.0</h1>
       
       <div class="launcher-buttons">
         <button @click="openNewProjectModal" class="btn-primary">+ Nowy Projekt</button>
         <button @click="openProjectDialog" class="btn-secondary">📂 Otwórz Projekt</button>
+        <button @click="showTutorialModal = true" class="btn-help">❓ Instrukcja Obsługi</button>
       </div>
 
       <div v-if="recentProjects.length" class="recent">
@@ -117,13 +124,18 @@ onMounted(loadRecentProjects)
           @click="openRecent(p)"
           class="recent-item"
         >
-          📁 {{ p.split('\\').pop() || p.split('/').pop() }}
+          📁 {{ getProjectName(p) }}
           <span class="recent-path">{{ p }}</span>
         </div>
+      </div>
+
+      <div class="beer-tip">
+        DAJ 3zł NA PIWO 🍺 przycisk jest i czeka...
       </div>
     </div>
   </div>
 
+  <!-- Modal: Nowy Projekt -->
   <div v-if="showNewProjectModal" class="modal" @click.self="showNewProjectModal = false">
     <div class="modal-content">
       <h3>Nowy projekt Janusza</h3>
@@ -151,11 +163,19 @@ onMounted(loadRecentProjects)
       </div>
 
       <div class="modal-buttons">
-        <button @click="createProject" :disabled="isCreating ||!newProjectName.trim()" class="btn-primary">
-          {{ isCreating? 'Tworzenie...' : 'Stwórz' }}
+        <button @click="createProject" :disabled="isCreating || !newProjectName.trim()" class="btn-primary">
+          {{ isCreating ? 'Tworzenie...' : 'Stwórz' }}
         </button>
         <button @click="showNewProjectModal = false" class="btn-cancel">Anuluj</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Modal: Tutorial -->
+  <div v-if="showTutorialModal" class="modal tutorial-modal" @click.self="showTutorialModal = false">
+    <div class="modal-content tutorial-content">
+      <button class="close-btn" @click="showTutorialModal = false">✕</button>
+      <img :src="tutorialImage" alt="Instrukcja" class="tutorial-img" />
     </div>
   </div>
 </template>
@@ -168,105 +188,121 @@ onMounted(loadRecentProjects)
   align-items: center;
   justify-content: center;
   z-index: 200;
-  background: 
-    linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)),
-    url('/assets/bg.png') center/cover no-repeat;
+  background-size: cover;
+  background-position: center;
 }
+
 .launcher h1 {
   color: #4ade80;
-  font-size: 28px;
-  margin: 0 0 40px 0;
-  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9);
-  font-weight: 600;
-  letter-spacing: 0.5px;
+  font-size: 32px;
+  margin: 0 0 32px 0;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 1), 0 0 20px rgba(74, 222, 128, 0.3);
+  font-weight: 700;
+  letter-spacing: 1px;
 }
 
 .launcher-content {
   text-align: center;
   position: relative;
   z-index: 1;
+  background: rgba(13, 17, 23, 0.85);
+  padding: 40px 50px;
+  border-radius: 8px;
+  border: 2px solid #16a34a;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8), 0 0 40px rgba(22, 163, 74, 0.2);
+  backdrop-filter: blur(8px);
 }
 
 .menu-header {
-  width: 120px;
-  height: auto;
-  margin-bottom: 32px;
-  border-radius: 4px;
-  box-shadow: 0 0 8px rgba(74, 222, 128, 0.4);
+  width: 100px;
+  height: 100px;
+  margin-bottom: 24px;
+  border-radius: 8px;
+  border: 3px solid #16a34a;
+  box-shadow: 0 0 16px rgba(74, 222, 128, 0.6);
 }
 
 .launcher-buttons {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  width: 280px;
+  gap: 12px;
+  width: 320px;
   margin: 0 auto;
 }
 
 .launcher-buttons button {
   padding: 14px 24px;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
   border: none;
   cursor: pointer;
   transition: all 0.15s;
-  border-radius: 2px;
-  text-transform: none;
-  letter-spacing: 0;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .btn-primary {
-  background: #16a34a;
+  background: linear-gradient(135deg, #16a34a, #22c55e);
   color: #fff;
-  box-shadow: none;
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.4);
 }
 
 .btn-primary:hover {
-  background: #22c55e;
-  transform: none;
-  box-shadow: none;
+  background: linear-gradient(135deg, #22c55e, #4ade80);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(34, 197, 94, 0.6);
 }
 
 .btn-secondary {
   background: #1e293b;
   color: #e2e8f0;
-  border: 1px solid #334155;
+  border: 2px solid #334155;
 }
 
 .btn-secondary:hover {
   background: #334155;
   border-color: #4ade80;
-  transform: none;
-  box-shadow: none;
+  transform: translateY(-2px);
+}
+
+.btn-help {
+  background: #7c3aed;
+  color: #fff;
+  border: 2px solid #8b5cf6;
+}
+
+.btn-help:hover {
+  background: #8b5cf6;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.5);
 }
 
 .recent {
-  margin-top: 40px;
-  padding-top: 0;
-  border-top: none;
+  margin-top: 32px;
 }
 
 .recent h3 {
   color: #94a3b8;
-  font-size: 13px;
+  font-size: 12px;
   margin: 0 0 12px 0;
-  letter-spacing: 0.5px;
-  font-weight: 400;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  letter-spacing: 1px;
+  font-weight: 600;
+  text-transform: uppercase;
 }
 
 .recent-item {
-  padding: 10px 16px;
+  padding: 12px 16px;
   background: #1e293b;
-  border: 1px solid #334155;
-  border-radius: 2px;
+  border: 2px solid #334155;
+  border-radius: 4px;
   margin-bottom: 8px;
   cursor: pointer;
   transition: all 0.15s;
   color: #cbd5e1;
   font-size: 13px;
   text-align: left;
-  width: 280px;
+  width: 320px;
   margin-left: auto;
   margin-right: auto;
 }
@@ -275,56 +311,70 @@ onMounted(loadRecentProjects)
   background: #334155;
   border-color: #4ade80;
   color: #e2e8f0;
-  transform: none;
+  transform: translateX(4px);
 }
 
 .recent-path {
   display: block;
   font-size: 10px;
   color: #64748b;
-  font-family: monospace;
-  margin-top: 3px;
+  font-family: 'Consolas', monospace;
+  margin-top: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.beer-tip {
+  margin-top: 32px;
+  padding: 12px;
+  background: #fbbf24;
+  color: #78350f;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 13px;
+  border: 2px solid #f59e0b;
+  box-shadow: 0 4px 12px rgba(251, 191, 36, 0.4);
+}
+
 .modal {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.85);
+  background: rgba(0, 0, 0, 0.9);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 300;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(8px);
 }
 
 .modal-content {
   background: #1e293b;
-  padding: 28px;
-  border-radius: 4px;
-  border: 1px solid #16a34a;
+  padding: 32px;
+  border-radius: 8px;
+  border: 2px solid #16a34a;
   min-width: 500px;
   max-width: 90%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
 }
 
 .modal-content h3 {
-  margin: 0 0 20px 0;
+  margin: 0 0 24px 0;
   color: #4ade80;
-  font-size: 20px;
+  font-size: 22px;
+  font-weight: 700;
 }
 
 .form-group {
-  margin-bottom: 18px;
+  margin-bottom: 20px;
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   color: #94a3b8;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   text-align: left;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -334,15 +384,17 @@ onMounted(loadRecentProjects)
   width: 100%;
   padding: 12px;
   background: #0a1628;
-  border: 1px solid #334155;
+  border: 2px solid #334155;
   color: #fff;
   font-size: 14px;
-  border-radius: 2px;
+  border-radius: 4px;
+  font-family: 'Consolas', monospace;
 }
 
 .form-group input:focus {
   outline: none;
   border-color: #16a34a;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.1);
 }
 
 .folder-picker {
@@ -356,11 +408,11 @@ onMounted(loadRecentProjects)
 }
 
 .folder-picker button {
-  padding: 12px 18px;
+  padding: 12px 20px;
   background: #334155;
-  border: 1px solid #475569;
+  border: 2px solid #475569;
   color: white;
-  border-radius: 2px;
+  border-radius: 4px;
   cursor: pointer;
   white-space: nowrap;
   font-weight: 600;
@@ -372,27 +424,28 @@ onMounted(loadRecentProjects)
 
 .hint {
   display: block;
-  margin-top: 6px;
+  margin-top: 8px;
   color: #64748b;
   font-size: 11px;
   text-align: left;
-  font-family: monospace;
+  font-family: 'Consolas', monospace;
 }
 
 .modal-buttons {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   justify-content: flex-end;
-  margin-top: 24px;
+  margin-top: 28px;
 }
 
 .modal-buttons button {
-  padding: 10px 24px;
+  padding: 12px 28px;
   cursor: pointer;
   border: none;
-  border-radius: 2px;
-  font-weight: 600;
+  border-radius: 4px;
+  font-weight: 700;
   font-size: 14px;
+  text-transform: uppercase;
 }
 
 .btn-cancel {
@@ -402,5 +455,44 @@ onMounted(loadRecentProjects)
 
 .btn-cancel:hover {
   background: #475569;
+}
+
+.tutorial-modal .modal-content {
+  padding: 0;
+  max-width: 95vw;
+  max-height: 95vh;
+  overflow: auto;
+  background: #0d1117;
+}
+
+.tutorial-content {
+  position: relative;
+}
+
+.close-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: #dc2626;
+  color: white;
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 20px;
+  cursor: pointer;
+  z-index: 10;
+  font-weight: 700;
+}
+
+.close-btn:hover {
+  background: #ef4444;
+  transform: scale(1.1);
+}
+
+.tutorial-img {
+  width: 100%;
+  height: auto;
+  display: block;
 }
 </style>
