@@ -1,5 +1,5 @@
-<script setup>
-import { computed } from 'vue'
+<script setup lang="ts">
+import { computed, onMounted } from 'vue'
 import { useProjectStore } from '../stores/projectStore'
 
 const store = useProjectStore()
@@ -8,14 +8,25 @@ const scene = computed(() => store.currentScene)
 const sceneIds = computed(() => store.sceneIdsInCurrentDay)
 const backgrounds = computed(() => store.assets.images)
 
-function updateScene(field, value) {
+function updateScene(field: string, value: any) {
   store.updateCurrentScene(field, value)
 }
+
+// Migracja starych wyborów bez ID - odpala się raz przy mount
+onMounted(() => {
+  if (scene.value?.Choices) {
+    scene.value.Choices.forEach((c: any) => {
+      if (!c.id) c.id = crypto.randomUUID()
+    })
+  }
+})
 
 function addChoice() {
   if (!scene.value) return
   if (!scene.value.Choices) scene.value.Choices = []
+  
   scene.value.Choices.push({
+    id: crypto.randomUUID(),
     Text: 'Nowy wybór',
     Next: scene.value.Id,
     Cebula: 0,
@@ -28,92 +39,97 @@ function addChoice() {
   })
 }
 
-function deleteChoice(index) {
+function deleteChoice(index: number) {
   scene.value.Choices.splice(index, 1)
 }
 </script>
 
 <template>
   <div v-if="scene" class="choices-panel">
-    <h3>Edycja: {{ scene.Id }}</h3>
-    
-    <div class="field">
-      <label>Tytuł sceny</label>
-      <input 
-        :value="scene.SceneTitle" 
-        @input="updateScene('SceneTitle', $event.target.value)"
-        placeholder="Nazwa wyświetlana w grze"
-      />
-    </div>
-
-    <div class="field">
-      <label>Tło</label>
-      <select 
-        :value="scene.Background" 
-        @change="updateScene('Background', $event.target.value)"
-      >
-        <option value="">— Brak —</option>
-        <option v-for="bg in backgrounds" :key="bg" :value="bg">
-          {{ bg.replace('images/', '') }}
-        </option>
-      </select>
-    </div>
-
-    <div class="field">
-      <label>Tekst sceny</label>
-      <textarea 
-        :value="scene.Text" 
-        @input="updateScene('Text', $event.target.value)"
-        rows="5"
-        placeholder="Co widzi gracz..."
-      ></textarea>
-    </div>
-
-    <div class="choices-header">
-      <h4>Wybory [{{ scene.Choices?.length || 0 }}]</h4>
-      <button @click="addChoice" class="btn-add">+ Wybór</button>
-    </div>
-
-    <div 
-      v-for="(choice, idx) in scene.Choices || []" 
-      :key="idx" 
-      class="choice-card"
-    >
-      <div class="choice-header">
-        <input 
-          v-model="choice.Text" 
-          placeholder="Tekst wyboru"
-          class="choice-input"
-        />
-        <button @click="deleteChoice(idx)" class="btn-delete">×</button>
-      </div>
+    <div class="panel-content">
+      <h3>Edycja: {{ scene.Id }}</h3>
       
-      <div class="choice-next">
-        <span>Przejdź do:</span>
-        <select v-model="choice.Next">
-          <option v-for="id in sceneIds" :key="id" :value="id">
-            {{ id }}
+      <div class="field">
+        <label>Tytuł sceny</label>
+        <input 
+          :value="scene.SceneTitle" 
+          @input="updateScene('SceneTitle', $event.target.value)"
+          placeholder="Nazwa wyświetlana w grze"
+        />
+      </div>
+
+      <div class="field">
+        <label>Tło</label>
+        <select 
+          :value="scene.Background" 
+          @change="updateScene('Background', $event.target.value)"
+        >
+          <option value="">— Brak —</option>
+          <option v-for="bg in backgrounds" :key="bg" :value="bg">
+            {{ bg.replace('images/', '') }}
           </option>
         </select>
       </div>
 
-      <div class="stats-title">Statystyki</div>
-      <div class="stats-grid">
-        <div class="stat">
-          <label>Cebula</label>
-          <input v-model.number="choice.Cebula" type="number" />
-        </div>
-        <div class="stat">
-          <label>Wstyd</label>
-          <input v-model.number="choice.Wstyd" type="number" />
-        </div>
-        <div class="stat">
-          <label>Portfel</label>
-          <input v-model.number="choice.Portfel" type="number" />
-        </div>
-        <div class="stat">
-          <label>Reputacja</label>
-          <input v-model.number="choice.Reputacja" type="number" />
+      <div class="field">
+        <label>Tekst sceny</label>
+        <textarea 
+          :value="scene.Text" 
+          @input="updateScene('Text', $event.target.value)"
+          rows="5"
+          placeholder="Co widzi gracz..."
+        ></textarea>
+      </div>
+
+      <div class="choices-header">
+        <h4>Wybory [{{ scene.Choices?.length || 0 }}]</h4>
+        <button @click="addChoice" class="btn-add">+ Wybór</button>
+      </div>
+
+      <!-- TU JEST KLUCZ - OSOBNY DIV ZE SCROLLEM -->
+      <div class="choices-list">
+        <div 
+          v-for="(choice, idx) in scene.Choices || []" 
+          :key="choice.id" 
+          class="choice-card"
+        >
+          <div class="choice-header">
+            <input 
+              v-model="choice.Text" 
+              placeholder="Tekst wyboru"
+              class="choice-input"
+            />
+            <button @click="deleteChoice(idx)" class="btn-delete">×</button>
+          </div>
+          
+          <div class="choice-next">
+            <span>Przejdź do:</span>
+            <select v-model="choice.Next">
+              <option v-for="id in sceneIds" :key="id" :value="id">
+                {{ id }}
+              </option>
+            </select>
+          </div>
+
+          <div class="stats-title">Statystyki</div>
+          <div class="stats-grid">
+            <div class="stat">
+              <label>Cebula</label>
+              <input v-model.number="choice.Cebula" type="number" />
+            </div>
+            <div class="stat">
+              <label>Wstyd</label>
+              <input v-model.number="choice.Wstyd" type="number" />
+            </div>
+            <div class="stat">
+              <label>Portfel</label>
+              <input v-model.number="choice.Portfel" type="number" />
+            </div>
+            <div class="stat">
+              <label>Reputacja</label>
+              <input v-model.number="choice.Reputacja" type="number" />
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -126,12 +142,20 @@ function deleteChoice(index) {
 
 <style scoped>
 .choices-panel {
-  padding: 20px;
   background: #0f172a;
-  overflow-y: auto;
   height: 100%;
-  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
+
+.panel-content {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
 .choices-panel h3 {
   margin: 0 0 20px 0;
   color: #4ade80;
@@ -161,7 +185,7 @@ function deleteChoice(index) {
   color: #e2e8f0;
   font-size: 13px;
   border-radius: 4px;
-  box-sizing: border-box; /* ← KLUCZ */
+  box-sizing: border-box;
 }
 .field input:focus, 
 .field select:focus, 
@@ -181,6 +205,11 @@ function deleteChoice(index) {
   margin: 24px 0 12px 0;
   padding-top: 16px;
   border-top: 1px solid #1e293b;
+  position: sticky;
+  top: 0;
+  background: #0f172a;
+  z-index: 10;
+  padding-bottom: 12px;
 }
 .choices-header h4 {
   margin: 0;
@@ -202,13 +231,20 @@ function deleteChoice(index) {
 .btn-add:hover { 
   background: #22c55e; 
 }
+
+/* TO JEST KLUCZOWY DIV ZE SCROLLEM */
+.choices-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .choice-card {
   background: #1e293b;
   border: 1px solid #334155;
   border-radius: 6px;
   padding: 14px;
-  margin-bottom: 12px;
-  box-sizing: border-box; /* ← KLUCZ */
+  box-sizing: border-box;
 }
 .choice-header {
   display: flex;
@@ -217,7 +253,7 @@ function deleteChoice(index) {
 }
 .choice-input {
   flex: 1;
-  min-width: 0; /* ← KLUCZ dla flexa */
+  min-width: 0;
   padding: 8px 10px;
   background: #0f172a;
   border: 1px solid #334155;
@@ -231,7 +267,7 @@ function deleteChoice(index) {
   border-color: #4ade80;
 }
 .btn-delete {
-  flex-shrink: 0; /* ← nie ściskaj przycisku */
+  flex-shrink: 0;
   padding: 0 12px;
   background: #7f1d1d;
   border: 1px solid #991b1b;
@@ -262,7 +298,7 @@ function deleteChoice(index) {
 }
 .choice-next select {
   flex: 1;
-  min-width: 0; /* ← KLUCZ */
+  min-width: 0;
   padding: 6px 8px;
   background: #0f172a;
   border: 1px solid #334155;
@@ -283,10 +319,10 @@ function deleteChoice(index) {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
-  width: 100%; /* ← trzymaj szerokość */
+  width: 100%;
 }
 .stat {
-  min-width: 0; /* ← KLUCZ: grid item nie wywala */
+  min-width: 0;
 }
 .stat label {
   display: block;
@@ -303,7 +339,7 @@ function deleteChoice(index) {
   font-size: 13px;
   border-radius: 4px;
   text-align: center;
-  box-sizing: border-box; /* ← TO NAPRAWIA WSZYSTKO */
+  box-sizing: border-box;
 }
 .stat input:focus {
   outline: none;

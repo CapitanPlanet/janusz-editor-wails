@@ -1,10 +1,10 @@
-<script setup>
+<script setup lang="ts">
 import { useProjectStore } from '../stores/projectStore'
 
 const store = useProjectStore()
 
-function goToScene(sceneId) {
-  store.currentSceneId = sceneId
+function goToScene(sceneId: string) {
+  store.selectScene(sceneId) // użyj akcji ze store'a
 }
 
 function addScene() {
@@ -18,28 +18,13 @@ function addScene() {
     return
   }
   
-  const scenes = store.currentDayScenes
-  scenes.push({
-    Id: sceneName,
-    SceneTitle: sceneName, // Tytuł = ID na start
-    Background: '',
-    Text: '',
-    Choices: []
-  })
-  store.currentSceneId = sceneName
+  // UŻYJ AKCJI ZE STORE'A - nie pushuj ręcznie
+  store.addSceneToCurrentDay(sceneName)
 }
 
-function deleteScene(sceneId) {
-  const scenes = store.currentDayScenes
-  if (scenes.length <= 1) {
-    alert('Nie możesz usunąć ostatniej sceny w dniu')
-    return
-  }
-  const index = scenes.findIndex(s => s.Id === sceneId)
-  scenes.splice(index, 1)
-  if (store.currentSceneId === sceneId) {
-    store.currentSceneId = scenes[0]?.Id || null
-  }
+function deleteScene(sceneId: string) {
+  // UŻYJ AKCJI ZE STORE'A - nie splice'uj ręcznie
+  store.deleteScene(sceneId)
 }
 </script>
 
@@ -67,7 +52,6 @@ function deleteScene(sceneId) {
 </template>
 
 <style scoped>
-/* Skopiuj swoje stare style, działają */
 .scenes-panel {
   background: rgba(10, 22, 40, 0.75);
   padding: 16px;
@@ -153,7 +137,7 @@ function deleteScene(sceneId) {
   opacity: 0;
   transition: opacity 0.2s;
 }
-.scene-item:hover.btn-delete-mini {
+.scene-item:hover .btn-delete-mini {
   opacity: 1;
 }
 </style>

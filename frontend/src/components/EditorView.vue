@@ -10,7 +10,7 @@ import tutorialBg from '../assets/tutorial_bg.jpg'
 const store = useProjectStore()
 const emit = defineEmits(['go-to-menu'])
 const showSavedToast = ref(false)
-const showTutorial = ref(false) // <-- DODANE
+const showTutorial = ref(false)
 
 onMounted(() => {
   console.log('[EDITOR] Mounted, meta:', store.meta?.gameName)
@@ -49,21 +49,18 @@ async function saveProject() {
       Ładowanie projektu...
     </div>
 
-    <!-- DOLNY PASEK: ZAPISZ + MENU + TUTORIAL -->
     <div class="bottom-bar">
       <button @click="saveProject" class="btn btn-primary">💾 Zapisz projekt</button>
       <button @click="emit('go-to-menu')" class="btn btn-secondary">📁 Menu</button>
       <button @click="showTutorial = true" class="btn btn-help">📖 Pokaż Tutorial</button>
     </div>
 
-    <!-- TOAST -->
     <transition name="toast">
       <div v-if="showSavedToast" class="toast-saved">
         ✓ Zapisano
       </div>
     </transition>
 
-    <!-- MODAL TUTORIAL - prosty div zamiast <Modal> -->
     <div v-if="showTutorial" class="modal-overlay" @click.self="showTutorial = false">
       <div class="modal-content tutorial-content">
         <button class="close-btn" @click="showTutorial = false">✕</button>
@@ -156,6 +153,11 @@ body {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  min-height: 0;
+}
+
+/* TO JEST KLUCZ - POZWALA DZIECIOM SIĘ SCROLLOWAĆ */
+.panel > * {
   min-height: 0;
 }
 
@@ -260,7 +262,6 @@ body {
   transform: translateY(10px);
 }
 
-/* MODAL TUTORIAL */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -314,7 +315,6 @@ body {
   display: block;
 }
 
-/* Globalne style dla inputów które będziesz miał w child komponentach */
 :deep(input),
 :deep(textarea),
 :deep(select) {
