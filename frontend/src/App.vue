@@ -6,13 +6,19 @@ import EditorView from './components/EditorView.vue'
 
 const projectStore = useProjectStore()
 
-// Jak projectPath jest ustawiony, to znaczy że mamy projekt
-const isProjectLoaded = computed(() =>!!projectStore.projectPath)
+const isProjectLoaded = computed(() => !!projectStore.projectPath)
+
+function closeProject() {
+  projectStore.currentProject = null
+  projectStore.projectPath = ''
+  projectStore.meta = null
+  // wyczyść resztę co trzymasz w store
+}
 </script>
 
 <template>
   <LauncherView v-if="!isProjectLoaded" />
-  <EditorView v-else />
+  <EditorView v-else @go-to-menu="closeProject" />
 </template>
 
 <style>
