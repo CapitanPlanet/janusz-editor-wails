@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import SidePanel from './SidePanel.vue'
 import ScenesPanel from './ScenesPanel.vue'
@@ -7,10 +7,10 @@ import ChoicesPanel from './ChoicesPanel.vue'
 import { useProjectStore } from '../stores/projectStore'
 import tutorialBg from '../assets/tutorial_bg.jpg'
 
-
 const store = useProjectStore()
 const emit = defineEmits(['go-to-menu'])
 const showSavedToast = ref(false)
+const showTutorial = ref(false) // <-- DODANE
 
 onMounted(() => {
   console.log('[EDITOR] Mounted, meta:', store.meta?.gameName)
@@ -49,15 +49,11 @@ async function saveProject() {
       Ładowanie projektu...
     </div>
 
-    <!-- DOLNY PASEK: ZAPISZ + MENU -->
+    <!-- DOLNY PASEK: ZAPISZ + MENU + TUTORIAL -->
     <div class="bottom-bar">
       <button @click="saveProject" class="btn btn-primary">💾 Zapisz projekt</button>
       <button @click="emit('go-to-menu')" class="btn btn-secondary">📁 Menu</button>
-      <button @click="showTutorial = true">📖 Pokaż Tutorial</button>
-
-<Modal v-if="showTutorial">
-  <img :src="tutorialBg" style="width:100%" />
-</Modal>
+      <button @click="showTutorial = true" class="btn btn-help">📖 Pokaż Tutorial</button>
     </div>
 
     <!-- TOAST -->
@@ -66,6 +62,14 @@ async function saveProject() {
         ✓ Zapisano
       </div>
     </transition>
+
+    <!-- MODAL TUTORIAL - prosty div zamiast <Modal> -->
+    <div v-if="showTutorial" class="modal-overlay" @click.self="showTutorial = false">
+      <div class="modal-content tutorial-content">
+        <button class="close-btn" @click="showTutorial = false">✕</button>
+        <img :src="tutorialBg" alt="Instrukcja" class="tutorial-img" />
+      </div>
+    </div>
   </div>
 </template>
 
@@ -118,7 +122,7 @@ body {
   overflow: hidden;
   min-height: 0;
   padding-bottom: 72px;
-  min-width: 1316px; /* DODAJ TO - wymusza scroll zamiast cięcia */
+  min-width: 1316px;
 }
 
 .top-bar {
@@ -217,6 +221,17 @@ body {
   border-color: var(--border-hover);
 }
 
+.btn-help {
+  background: #7c3aed;
+  color: #fff;
+  border: 1px solid #8b5cf6;
+}
+
+.btn-help:hover {
+  background: #8b5cf6;
+  transform: translateY(-1px);
+}
+
 .btn:active {
   transform: translateY(0);
 }
@@ -243,6 +258,60 @@ body {
 .toast-enter-from, .toast-leave-to {
   opacity: 0;
   transform: translateY(10px);
+}
+
+/* MODAL TUTORIAL */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+  backdrop-filter: blur(8px);
+}
+
+.modal-content {
+  background: #0d1117;
+  border-radius: 8px;
+  border: 2px solid #16a34a;
+  max-width: 95vw;
+  max-height: 95vh;
+  overflow: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+}
+
+.tutorial-content {
+  position: relative;
+  padding: 0;
+}
+
+.close-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: #dc2626;
+  color: white;
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 20px;
+  cursor: pointer;
+  z-index: 10;
+  font-weight: 700;
+}
+
+.close-btn:hover {
+  background: #ef4444;
+  transform: scale(1.1);
+}
+
+.tutorial-img {
+  width: 100%;
+  height: auto;
+  display: block;
 }
 
 /* Globalne style dla inputów które będziesz miał w child komponentach */
