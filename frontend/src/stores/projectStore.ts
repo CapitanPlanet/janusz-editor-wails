@@ -1,6 +1,4 @@
 import { defineStore } from 'pinia'
-
-// DODAJ ListFiles DO IMPORTU
 import { 
   CreateProject, 
   ReadJSON, 
@@ -61,6 +59,8 @@ export const useProjectStore = defineStore('project', {
   }),
 
   getters: {
+    isProjectLoaded: (state) =>!!state.projectPath,
+    
     currentDayScenes: (state) => {
       return state.days[state.currentDay] || []
     },
@@ -77,18 +77,16 @@ export const useProjectStore = defineStore('project', {
 
     dayFileList: (state) => Object.keys(state.days),
 
-    // DODAJ TE GETTERY
     availableBackgrounds: (state) => state.assets.images,
     availableSounds: (state) => state.assets.sounds
   },
 
   actions: {
-    // TWORZENIE - CAŁA LOGIKA W GO
     async createProjectAtPath(fullProjectPath: string, gameName: string) {
       try {
         await CreateProject(fullProjectPath, gameName)
         await this.loadProjectFromPath(fullProjectPath)
-        await this.scanAssets() // DODAJ TO
+        await this.scanAssets()
         console.log('[STORE] Utworzono nowy projekt:', fullProjectPath)
         return fullProjectPath
       } catch (e) {
@@ -97,7 +95,6 @@ export const useProjectStore = defineStore('project', {
       }
     },
 
-    // ŁADOWANIE PROJEKTU Z DYSKU
     async loadProjectFromPath(path: string) {
       this.projectPath = path
 
@@ -119,11 +116,11 @@ export const useProjectStore = defineStore('project', {
 
       } catch (e) {
         console.error('[STORE] Błąd ładowania projektu:', e)
+        this.projectPath = null
         throw e
       }
     },
 
-    // SKANOWANIE ASSETÓW
     async scanAssets() {
       if (!this.projectPath) return
       try {
@@ -144,7 +141,6 @@ export const useProjectStore = defineStore('project', {
       }
     },
 
-    // ZAPIS PROJEKTU
     async saveProject() {
       if (!this.projectPath ||!this.meta) return
       this.saveStatus = 'Zapisywanie...'
@@ -170,7 +166,15 @@ export const useProjectStore = defineStore('project', {
       }
     },
 
-    // RESZTA BEZ ZMIAN
+    closeProject() {
+      this.projectPath = null
+      this.meta = null
+      this.days = {}
+      this.currentDay = 'day1'
+      this.currentSceneId = null
+      this.assets = { images: [], sounds: [] }
+    },
+
     addSceneToCurrentDay(sceneId?: string) {
       const newId = sceneId || `scene_${Date.now()}`
       const newScene: Scene = {

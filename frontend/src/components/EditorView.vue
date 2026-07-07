@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue'
 import SidePanel from './SidePanel.vue'
 import ScenesPanel from './ScenesPanel.vue'
-import EditorPanel from './EditorPanel.vue' 
+import ScenePreview from './ScenePreview.vue'
 import ChoicesPanel from './ChoicesPanel.vue'
 import { useProjectStore } from '../stores/projectStore'
 
@@ -30,22 +30,27 @@ async function saveProject() {
 <template>
   <div class="editor">
     <header class="top-bar">
-      <h1>{{ store.meta?.gameName || 'Janusz Editor' }}</h1>
-      <div class="toolbar"></div>
-      <div class="project-path">{{ store.projectPath }}</div>
+      <div class="top-bar-left">
+        <h1>{{ store.meta?.gameName || 'HTFFY Editor' }}</h1>
+        <div class="project-path">{{ store.projectPath }}</div>
+      </div>
     </header>
 
     <div v-if="store.meta" class="main-grid">
-      <SidePanel />
-      <ScenesPanel />
-      <EditorPanel />
-      <ChoicesPanel />
+      <SidePanel class="panel" />
+      <ScenesPanel class="panel" />
+      <ScenePreview class="panel panel-preview" />
+      <ChoicesPanel class="panel" />
+    </div>
+    
+    <div v-else class="loading">
+      Ładowanie projektu...
     </div>
 
     <!-- DOLNY PASEK: ZAPISZ + MENU -->
     <div class="bottom-bar">
-      <button @click="saveProject" class="save-btn">💾 Zapisz projekt</button>
-      <button @click="emit('go-to-menu')" class="menu-btn">📁 Menu</button>
+      <button @click="saveProject" class="btn btn-primary">💾 Zapisz projekt</button>
+      <button @click="emit('go-to-menu')" class="btn btn-secondary">📁 Menu</button>
     </div>
 
     <!-- TOAST -->
@@ -57,118 +62,221 @@ async function saveProject() {
   </div>
 </template>
 
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --bg: #0D1117;
+  --panel: #161B22;
+  --card: #21262D;
+  --input: #21262D;
+  --border: #30363D;
+  --border-hover: #484F58;
+  --accent: #00FF94;
+  --accent-dim: rgba(0, 255, 148, 0.1);
+  --text: #E6EDF3;
+  --text-dim: #7D8590;
+  --text-dimmer: #484F58;
+  --danger: #F85149;
+}
+
+* {
+  box-sizing: border-box;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+body {
+  background: var(--bg);
+  margin: 0;
+  color: var(--text);
+  overflow-x: hidden;
+}
+</style>
+
 <style scoped>
 .editor {
-  color: #fff;
   height: 100vh;
   display: flex;
   flex-direction: column;
   position: relative;
+  background: var(--bg);
 }
+
 .main-grid {
   display: grid;
-  grid-template-columns: 200px 250px 1fr 350px;
-  gap: 1px;
-  background: rgba(22, 163, 74, 0.2);
+  grid-template-columns: 220px 280px minmax(400px, 1fr) 380px;
+  gap: 12px;
+  padding: 12px;
   flex: 1;
   overflow: hidden;
   min-height: 0;
-  padding-bottom: 60px;
+  padding-bottom: 72px;
+  min-width: 1316px; /* DODAJ TO - wymusza scroll zamiast cięcia */
 }
+
 .top-bar {
   padding: 12px 20px;
-  border-bottom: 2px solid #16a34a;
-  background: rgba(30, 41, 59, 0.85);
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
   flex-shrink: 0;
-}
-.top-bar h1 {
-  margin: 0 0 8px 0;
-  font-size: 20px;
-  text-shadow: 0 0 10px rgba(74, 222, 128, 0.3);
-}
-.toolbar {
   display: flex;
-  gap: 8px;
   align-items: center;
-  height: 0px;
+  justify-content: space-between;
 }
+
+.top-bar h1 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
 .project-path {
   font-size: 11px;
-  color: #4ade80;
-  margin-top: 6px;
-  font-family: monospace;
-  opacity: 0.7;
+  color: var(--text-dim);
+  font-family: 'SF Mono', 'Consolas', monospace;
+  margin-top: 2px;
 }
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.panel-preview {
+  background: var(--bg);
+}
+
+.loading {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
 .bottom-bar {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  background: rgba(15, 23, 42, 0.95);
-  border-top: 2px solid #16a34a;
-  padding: 12px 24px;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+  padding: 12px 20px;
   display: flex;
   justify-content: flex-start;
-  gap: 12px;
+  gap: 8px;
   z-index: 100;
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(12px);
 }
-.save-btn {
-  background: #16a34a;
+
+.btn {
   border: none;
-  color: white;
-  padding: 10px 24px;
-  font-size: 14px;
+  padding: 8px 16px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.2s;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
-.save-btn:hover {
-  background: #22c55e;
-  box-shadow: 0 0 15px rgba(34, 197, 94, 0.4);
+
+.btn-primary {
+  background: var(--accent);
+  color: #0D1117;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.1);
   transform: translateY(-1px);
 }
-.menu-btn {
-  background: rgba(30, 41, 59, 0.95);
-  border: 1px solid #334155;
-  color: white;
-  padding: 10px 24px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.2s;
+
+.btn-secondary {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
 }
-.menu-btn:hover {
-  background: #334155;
-  border-color: #16a34a;
-  transform: translateY(-1px);
+
+.btn-secondary:hover {
+  background: var(--input);
+  border-color: var(--border-hover);
 }
-.save-btn:active, .menu-btn:active {
+
+.btn:active {
   transform: translateY(0);
 }
+
 .toast-saved {
   position: fixed;
   bottom: 80px;
-  right: 24px;
-  background: #16a34a;
-  color: white;
-  padding: 12px 24px;
+  right: 20px;
+  background: var(--card);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 10px 16px;
   border-radius: 6px;
   font-weight: 600;
-  box-shadow: 0 4px 20px rgba(34, 197, 94, 0.5);
+  font-size: 13px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   z-index: 200;
 }
+
 .toast-enter-active, .toast-leave-active {
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
 }
-.toast-enter-from {
+
+.toast-enter-from, .toast-leave-to {
   opacity: 0;
-  transform: translateY(20px);
+  transform: translateY(10px);
 }
-.toast-leave-to {
-  opacity: 0;
-  transform: translateY(20px);
+
+/* Globalne style dla inputów które będziesz miał w child komponentach */
+:deep(input),
+:deep(textarea),
+:deep(select) {
+  background: var(--input);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  transition: all 0.15s ease;
+  width: 100%;
+}
+
+:deep(input:focus),
+:deep(textarea:focus),
+:deep(select:focus) {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+:deep(label) {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+  display: block;
+}
+
+:deep(h3) {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin: 0 0 12px 0;
+  padding: 0 4px;
 }
 </style>

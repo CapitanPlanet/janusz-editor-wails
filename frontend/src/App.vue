@@ -1,22 +1,18 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed } from 'vue'
+import { useProjectStore } from './stores/projectStore'
 import LauncherView from './components/LauncherView.vue'
 import EditorView from './components/EditorView.vue'
 
-const currentView = ref<'launcher' | 'editor'>('launcher')
+const projectStore = useProjectStore()
 
-function goToEditor() {
-  currentView.value = 'editor'
-}
-
-function goToMenu() {
-  currentView.value = 'launcher'
-}
+// Jak projectPath jest ustawiony, to znaczy że mamy projekt
+const isProjectLoaded = computed(() =>!!projectStore.projectPath)
 </script>
 
 <template>
-  <LauncherView v-if="currentView === 'launcher'" @project-loaded="goToEditor" />
-  <EditorView v-else @go-to-menu="goToMenu" />
+  <LauncherView v-if="!isProjectLoaded" />
+  <EditorView v-else />
 </template>
 
 <style>
@@ -25,12 +21,29 @@ html, body, #app {
   padding: 0;
   width: 100%;
   height: 100%;
-  overflow: hidden;
-  background: #0a1628;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overflow: auto;
+  background: #0D1117;
 }
 
 * {
   box-sizing: border-box;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #161B22;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #30363D;
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #484F58;
 }
 </style>

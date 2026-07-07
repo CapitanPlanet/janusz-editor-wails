@@ -1,12 +1,11 @@
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { SelectFolder, CreateProject, AddRecentProject, GetRecentProjects, GetDefaultProjectPath } from '../../wailsjs/go/main/App'
 import { useProjectStore } from '../stores/projectStore'
 
 const store = useProjectStore()
-const emit = defineEmits(['project-loaded'])
 
-const recentProjects = ref([])
+const recentProjects = ref<string[]>([])
 const showNewProjectModal = ref(false)
 const newProjectName = ref('')
 const selectedFolder = ref('')
@@ -27,7 +26,6 @@ async function openProjectDialog() {
     if (selected) {
       await AddRecentProject(selected)
       await store.loadProjectFromPath(selected)
-      emit('project-loaded')
     }
   } catch (e) {
     alert('Błąd otwierania: ' + e)
@@ -67,10 +65,9 @@ async function createProject() {
     newProjectName.value = ''
     selectedFolder.value = ''
     
-    emit('project-loaded')
     await loadRecentProjects()
 
-  } catch (e) {
+  } catch (e: any) {
     console.error('Błąd tworzenia:', e)
     alert('Błąd tworzenia: ' + (e.message || e.toString()))
   } finally {
@@ -84,11 +81,10 @@ async function openNewProjectModal() {
   showNewProjectModal.value = true
 }
 
-async function openRecent(path) {
+async function openRecent(path: string) {
   try {
     await store.loadProjectFromPath(path)
     await AddRecentProject(path)
-    emit('project-loaded')
   } catch (e) {
     alert('Nie można otworzyć projektu: ' + e)
     await loadRecentProjects()
@@ -155,8 +151,8 @@ onMounted(loadRecentProjects)
       </div>
 
       <div class="modal-buttons">
-        <button @click="createProject" :disabled="isCreating || !newProjectName.trim()" class="btn-primary">
-          {{ isCreating ? 'Tworzenie...' : 'Stwórz' }}
+        <button @click="createProject" :disabled="isCreating ||!newProjectName.trim()" class="btn-primary">
+          {{ isCreating? 'Tworzenie...' : 'Stwórz' }}
         </button>
         <button @click="showNewProjectModal = false" class="btn-cancel">Anuluj</button>
       </div>
@@ -172,26 +168,23 @@ onMounted(loadRecentProjects)
   align-items: center;
   justify-content: center;
   z-index: 200;
-  /* WYWALONY NIEBIESKI GRADIENT - ZOSTAJE TYLKO LEKKIE PRZYCIEMNIENIE */
   background: 
     linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)),
     url('/assets/bg.png') center/cover no-repeat;
 }
 .launcher h1 {
   color: #4ade80;
-  font-size: 28px; /* BYŁO 36px */
-  margin: 0 0 40px 0; /* MNIEJ ODSTĘPU */
+  font-size: 28px;
+  margin: 0 0 40px 0;
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9);
   font-weight: 600;
   letter-spacing: 0.5px;
 }
-/* WYWALAMY CAŁY PULS I GLOW */
 
 .launcher-content {
   text-align: center;
   position: relative;
   z-index: 1;
-  /* ZERO TŁA, ZERO BORDERA, ZERO BLUR */
 }
 
 .menu-header {
@@ -199,48 +192,38 @@ onMounted(loadRecentProjects)
   height: auto;
   margin-bottom: 32px;
   border-radius: 4px;
-  box-shadow: 0 0 8px rgba(74, 222, 128, 0.4); /* tylko delikatna poświata */
-  /* ZERO GRUBYCH BORDERÓW */
-}
-
-.launcher h1 {
-  color: #4ade80;
-  font-size: 42px;
-  margin: 0 0 48px 0;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9); /* bez neonu, tylko cień */
-  font-weight: 600;
-  letter-spacing: 0.5px;
+  box-shadow: 0 0 8px rgba(74, 222, 128, 0.4);
 }
 
 .launcher-buttons {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  width: 280px; /* WĘŻSZE */
+  width: 280px;
   margin: 0 auto;
 }
 
 .launcher-buttons button {
-  padding: 14px 24px; /* MNIEJSZE */
+  padding: 14px 24px;
   font-size: 15px;
   font-weight: 600;
   border: none;
   cursor: pointer;
   transition: all 0.15s;
-  border-radius: 2px; /* PRAWIE PROSTOKĄT */
-  text-transform: none; /* normalna wielkość */
+  border-radius: 2px;
+  text-transform: none;
   letter-spacing: 0;
 }
 
 .btn-primary {
   background: #16a34a;
   color: #fff;
-  box-shadow: none; /* ZERO GLOW */
+  box-shadow: none;
 }
 
 .btn-primary:hover {
   background: #22c55e;
-  transform: none; /* ZERO SKAKANIA */
+  transform: none;
   box-shadow: none;
 }
 
@@ -260,7 +243,7 @@ onMounted(loadRecentProjects)
 .recent {
   margin-top: 40px;
   padding-top: 0;
-  border-top: none; /* ZERO LINII */
+  border-top: none;
 }
 
 .recent h3 {
@@ -292,7 +275,7 @@ onMounted(loadRecentProjects)
   background: #334155;
   border-color: #4ade80;
   color: #e2e8f0;
-  transform: none; /* ZERO PRZESUWANIA */
+  transform: none;
 }
 
 .recent-path {
@@ -306,7 +289,6 @@ onMounted(loadRecentProjects)
   white-space: nowrap;
 }
 
-/* MODAL BEZ ZMIAN - może zostać */
 .modal {
   position: fixed;
   inset: 0;
