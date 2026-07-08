@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { SelectFolder, CreateProject, AddRecentProject, GetRecentProjects, GetDefaultProjectPath } from '../../wailsjs/go/main/App'
+import { BrowserOpenURL } from '../../wailsjs/runtime/runtime'
 import { useProjectStore } from '../stores/projectStore'
 
-// POPRAWIONE: bg.png na tło, tutorial_bg.jpg do modala
 import januszLogo from '../assets/janusz_menu_header.png'
 import bgImage from '../assets/bg.png'
 import tutorialImage from '../assets/tutorial_bg.jpg'
@@ -101,6 +101,11 @@ function getProjectName(path: string): string {
   return path.split('\\').pop() || path.split('/').pop() || path
 }
 
+// DONACJA - TIPPLY PODPIĘTE
+function donate() {
+  BrowserOpenURL('https://tipply.pl/@kapitanplaneta')
+}
+
 onMounted(loadRecentProjects)
 </script>
 
@@ -129,9 +134,10 @@ onMounted(loadRecentProjects)
         </div>
       </div>
 
-      <div class="beer-tip">
-        DAJ 3zł NA PIWO 🍺 przycisk jest i czeka...
-      </div>
+      <!-- PRZYCISK DO PIWA - DZIAŁA -->
+      <button @click="donate" class="beer-tip">
+        DAJ 3zł NA PIWO 🍺
+      </button>
     </div>
   </div>
 
@@ -335,6 +341,20 @@ onMounted(loadRecentProjects)
   font-size: 13px;
   border: 2px solid #f59e0b;
   box-shadow: 0 4px 12px rgba(251, 191, 36, 0.4);
+  cursor: pointer;
+  width: 100%;
+  text-transform: uppercase;
+  transition: all 0.15s;
+}
+
+.beer-tip:hover {
+  background: #fcd34d;
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 6px 20px rgba(251, 191, 36, 0.6);
+}
+
+.beer-tip:active {
+  transform: translateY(0) scale(0.98);
 }
 
 .modal {
