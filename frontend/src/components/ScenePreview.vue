@@ -1,16 +1,32 @@
 <script setup>
-import { computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useProjectStore } from '../stores/projectStore'
+import { GetImageBase64 } from '../../wailsjs/go/main/App'
 
 const store = useProjectStore()
+const bgCache = ref({})
 
-function getAssetUrl(assetName) {
-  if (!store.projectPath ||!assetName) return ''
-  const fullPath = `${store.projectPath}/Assets/${assetName}`.replace(/\\/g, '/')
-  return `/abs/${fullPath}`
-}
+const bgUrl = computed(() => {
+  const bg = store.currentScene?.Background
+  if (!bg ||!store.projectPath) return ''
+  return bgCache.value[bg] || ''
+})
 
-const bgUrl = computed(() => getAssetUrl(store.currentScene?.Background))
+// Ładuj tło jako base64 przy zmianie sceny
+watch(() => store.currentScene?.Background, async (newBg) => {
+  if (!newBg ||!store.projectPath) {
+    return
+  }
+  if (bgCache.value[newBg]) return
+  
+  try {
+    const b64 = await GetImageBase64(store.projectPath, newBg)
+    bgCache.value[newBg] = b64
+  } catch (e) {
+    console.error('[PREVIEW] Błąd ładowania tła:', e)
+    bgCache.value[newBg] = ''
+  }
+}, { immediate: true })
 </script>
 
 <template>
@@ -29,10 +45,6 @@ const bgUrl = computed(() => getAssetUrl(store.currentScene?.Background))
         <h2>{{ store.currentScene.SceneTitle }}</h2>
         <p>{{ store.currentScene.Text }}</p>
       </div>
-
-      <!-- USUNIĘTE: preview-choices -->
-      <!-- Zostawiamy tylko czysty podgląd sceny -->
-      
     </div>
   </div>
   <div v-else class="no-scene">

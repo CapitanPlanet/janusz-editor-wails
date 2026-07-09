@@ -14,8 +14,20 @@ export function GetDefaultProjectPath() {
   return window['go']['main']['App']['GetDefaultProjectPath']();
 }
 
+export function GetImageBase64(arg1, arg2) {
+  return window['go']['main']['App']['GetImageBase64'](arg1, arg2);
+}
+
 export function GetRecentProjects() {
   return window['go']['main']['App']['GetRecentProjects']();
+}
+
+export function ImportAsset(arg1, arg2, arg3) {
+  return window['go']['main']['App']['ImportAsset'](arg1, arg2, arg3);
+}
+
+export function ListAssets(arg1) {
+  return window['go']['main']['App']['ListAssets'](arg1);
 }
 
 export function ListFiles(arg1, arg2) {
@@ -28,6 +40,10 @@ export function ReadJSON(arg1) {
 
 export function SelectFolder() {
   return window['go']['main']['App']['SelectFolder']();
+}
+
+export function SelectImageFile() {
+  return window['go']['main']['App']['SelectImageFile']();
 }
 
 export function WriteJSON(arg1, arg2) {

@@ -4,11 +4,12 @@ import {
   ReadJSON, 
   WriteJSON,
   SelectFolder,
-  ListFiles 
+  ListFiles,
+  ListAssets // <-- DODANE
 } from '../../wailsjs/go/main/App'
 
 interface Choice {
-  id?: string // <-- DODANE TYLKO TO
+  id?: string
   Text: string
   Next: string
   Cebula?: number
@@ -53,7 +54,8 @@ export const useProjectStore = defineStore('project', {
     currentDay: 'day1' as string,
     currentSceneId: null as string | null,
     assets: {
-      images: [] as string[],
+      all: [] as string[], // <-- DODANE: wszystkie assety z GameImages
+      images: [] as string[], // zostawiam dla kompatybilności
       sounds: [] as string[]
     },
     saveStatus: ''
@@ -78,12 +80,17 @@ export const useProjectStore = defineStore('project', {
 
     dayFileList: (state) => Object.keys(state.days),
 
-    availableBackgrounds: (state) => state.assets.images,
+    // ZMIENIONE: teraz filtrujemy po prefixach
+    backgroundAssets: (state) => state.assets.all.filter(a => a.startsWith('images/bg_')),
+    reactionAssets: (state) => state.assets.all.filter(a => a.startsWith('images/re_')),
+    avatarAssets: (state) => state.assets.all.filter(a => a.startsWith('images/av_')),
+    
+    // stare gettery zostawiam żeby nic nie wybuchło
+    availableBackgrounds: (state) => state.assets.all.filter(a => a.startsWith('images/bg_')),
     availableSounds: (state) => state.assets.sounds
   },
 
   actions: {
-    // DODANE: zapewnia ID dla wyborów
     ensureChoiceIds(scene: Scene) {
       if (scene?.Choices) {
         scene.Choices.forEach((c: Choice) => {
@@ -92,11 +99,30 @@ export const useProjectStore = defineStore('project', {
       }
     },
 
+    // NOWA AKCJA: ładuje assety z GameImages przez Go
+    async loadAssets() {
+      if (!this.projectPath) {
+        this.assets.all = []
+        this.assets.images = []
+        return
+      }
+      try {
+        const list = await ListAssets(this.projectPath)
+        this.assets.all = list || []
+        this.assets.images = list || [] // wsteczna kompatybilność
+        console.log('[STORE] Załadowano assety:', this.assets.all.length)
+      } catch (e) {
+        console.error('[STORE] Błąd ładowania assetów:', e)
+        this.assets.all = []
+        this.assets.images = []
+      }
+    },
+
     async createProjectAtPath(fullProjectPath: string, gameName: string) {
       try {
         await CreateProject(fullProjectPath, gameName)
         await this.loadProjectFromPath(fullProjectPath)
-        await this.scanAssets()
+        await this.loadAssets() // <-- DODANE
         console.log('[STORE] Utworzono nowy projekt:', fullProjectPath)
         return fullProjectPath
       } catch (e) {
@@ -115,7 +141,6 @@ export const useProjectStore = defineStore('project', {
         const day1Raw = await ReadJSON(`${path}/Data/day1.json`)
         const day1Data = JSON.parse(day1Raw)
         
-        // DODANE: nadaj ID wszystkim wyborom przy ładowaniu
         day1Data.forEach((scene: Scene) => this.ensureChoiceIds(scene))
         
         this.days = {
@@ -125,7 +150,7 @@ export const useProjectStore = defineStore('project', {
         this.currentDay = this.meta.startDay || 'day1'
         this.currentSceneId = this.meta.startScene || this.days[this.currentDay]?.[0]?.Id || null
 
-        await this.scanAssets()
+        await this.loadAssets() // <-- ZMIENIONE: wołamy nową akcję
         console.log('[STORE] Załadowano projekt:', this.meta.gameName)
         console.log('[STORE] Dni:', Object.keys(this.days))
 
@@ -136,26 +161,21 @@ export const useProjectStore = defineStore('project', {
       }
     },
 
-async scanAssets() {
-  if (!this.projectPath) return
-  try {
-    // DODAJEMY || [] JAKO FALLBACK
-    const imagesJpg = (await ListFiles(`${this.projectPath}/Assets/images`, '.jpg')) || []
-    const imagesPng = (await ListFiles(`${this.projectPath}/Assets/images`, '.png')) || []
-    this.assets.images = [...imagesJpg, ...imagesPng]
-    
-    const soundsMp3 = (await ListFiles(`${this.projectPath}/Assets/sounds`, '.mp3')) || []
-    const soundsWav = (await ListFiles(`${this.projectPath}/Assets/sounds`, '.wav')) || []
-    this.assets.sounds = [...soundsMp3, ...soundsWav]
-    
-    console.log('[STORE] Zeskanowano teł:', this.assets.images)
-    console.log('[STORE] Zeskanowano dźwięków:', this.assets.sounds)
-  } catch (e) {
-    console.error('[STORE] Błąd skanowania assetów:', e)
-    this.assets.images = []
-    this.assets.sounds = []
-  }
-},
+    // STARA FUNKCJA: zostawiam ale już nie używamy do obrazów
+    async scanAssets() {
+      if (!this.projectPath) return
+      try {
+        // Dźwięki dalej z Assets/sounds
+        const soundsMp3 = (await ListFiles(`${this.projectPath}/sounds`, '.mp3')) || []
+        const soundsWav = (await ListFiles(`${this.projectPath}/sounds`, '.wav')) || []
+        this.assets.sounds = [...soundsMp3,...soundsWav]
+        
+        console.log('[STORE] Zeskanowano dźwięków:', this.assets.sounds)
+      } catch (e) {
+        console.error('[STORE] Błąd skanowania dźwięków:', e)
+        this.assets.sounds = []
+      }
+    },
 
     async saveProject() {
       if (!this.projectPath ||!this.meta) return
@@ -167,13 +187,12 @@ async scanAssets() {
           JSON.stringify(this.meta, null, 2)
         )
 
-        // ZMIANA: usuwamy id przed zapisem do pliku
         const daysToSave = {} as Record<string, Scene[]>
         for (const dayFile of Object.keys(this.days)) {
           daysToSave[dayFile] = this.days[dayFile].map((scene: Scene) => ({
-           ...scene,
+          ...scene,
             Choices: scene.Choices?.map((c: Choice) => {
-              const { id,...rest } = c // wywalamy id
+              const { id,...rest } = c
               return rest
             })
           }))
@@ -200,7 +219,7 @@ async scanAssets() {
       this.days = {}
       this.currentDay = 'day1'
       this.currentSceneId = null
-      this.assets = { images: [], sounds: [] }
+      this.assets = { all: [], images: [], sounds: [] }
     },
 
     addSceneToCurrentDay(sceneId?: string) {
@@ -227,7 +246,6 @@ async scanAssets() {
       newScene.Id = `${sceneToCopy.Id}_copy_${Date.now()}`
       newScene.SceneTitle = `${sceneToCopy.SceneTitle || sceneId} - Kopia`
       
-      // DODANE: nowe ID dla wyborów w kopii
       this.ensureChoiceIds(newScene)
 
       const index = scenes.findIndex((s: Scene) => s.Id === sceneId)

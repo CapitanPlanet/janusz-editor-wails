@@ -3,11 +3,14 @@ package main
 import (
 	"context"
 	"embed"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -47,23 +50,18 @@ func (a *App) GetDefaultProjectPath() string {
 // TWORZENIE PROJEKTU - JEDYNA WERSJA
 func (a *App) CreateProject(fullPath string, gameName string) error {
 	runtime.LogInfo(a.ctx, "[APP] Tworzę projekt: "+fullPath)
-	
-	// 1. Foldery
-	if err := os.MkdirAll(fullPath, 0755); err!= nil {
-		runtime.LogError(a.ctx, "[APP] Błąd mkdir: "+err.Error())
-		return err
+
+	// 1. Foldery - nowa struktura
+	dirs := []string{
+		filepath.Join(fullPath, "Data"),
+		filepath.Join(fullPath, "GameImages"), // <-- tu lądują wszystkie obrazki gry
+		filepath.Join(fullPath, "sounds"),
 	}
-	if err := os.MkdirAll(filepath.Join(fullPath, "Data"), 0755); err!= nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Join(fullPath, "Assets", "images"), 0755); err!= nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Join(fullPath, "Assets", "sounds"), 0755); err!= nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Join(fullPath, "Assets", "Backgrounds"), 0755); err!= nil {
-		return err
+	for _, dir := range dirs {
+		if err := os.MkdirAll(dir, 0755); err!= nil {
+			runtime.LogError(a.ctx, "[APP] Błąd mkdir: "+err.Error())
+			return err
+		}
 	}
 
 	// 2. project.janproj
@@ -71,7 +69,7 @@ func (a *App) CreateProject(fullPath string, gameName string) error {
 		"gameName": gameName,
 		"author": "",
 		"version": "1.0.0",
-		"engineVersion":"2.0.0",
+		"engineVersion": "2.0.0",
 		"startDay": "day1",
 		"startScene": "start",
 	}
@@ -86,7 +84,7 @@ func (a *App) CreateProject(fullPath string, gameName string) error {
 		{
 			"Id": "start",
 			"SceneTitle": "Początek",
-			"Background": "tutorial_bg.jpg", // <-- Domyślnie wrzucamy tutorial
+			"Background": "images/bg_tutorial.jpg", // <-- zmiana na prefix bg_
 			"Text": "Witaj w Edytorze Janusza. To jest pierwsza scena Twojej gry. Kliknij Instrukcja Obsługi w menu głównym.",
 			"Choices": []interface{}{},
 		},
@@ -96,7 +94,7 @@ func (a *App) CreateProject(fullPath string, gameName string) error {
 		return err
 	}
 
-	// 4. Kopiuj tutorial z templates - używamy embed
+	// 4. Kopiuj tutorial z templates do GameImages - używamy embed
 	err := fs.WalkDir(templatesFS, "templates/Assets", func(path string, d fs.DirEntry, err error) error {
 		if err!= nil {
 			return err
@@ -104,25 +102,26 @@ func (a *App) CreateProject(fullPath string, gameName string) error {
 		if d.IsDir() {
 			return nil
 		}
-		
+
 		data, err := templatesFS.ReadFile(path)
 		if err!= nil {
 			runtime.LogWarning(a.ctx, "[APP] Nie mogę odczytać template: "+path)
 			return nil // nie przerywaj jak brakuje
 		}
-		
-		relPath, _ := filepath.Rel("templates/Assets", path)
-		destPath := filepath.Join(fullPath, "Assets", relPath)
+
+		// Zmieniamy dest: wszystko z templates/Assets ląduje w GameImages
+		fileName := filepath.Base(path)
+		destPath := filepath.Join(fullPath, "GameImages", fileName)
 		os.MkdirAll(filepath.Dir(destPath), 0755)
-		
+
 		if err := os.WriteFile(destPath, data, 0644); err!= nil {
 			runtime.LogWarning(a.ctx, "[APP] Nie mogę skopiować: "+destPath)
 		} else {
-			runtime.LogInfo(a.ctx, "[APP] Skopiowano template: "+relPath)
+			runtime.LogInfo(a.ctx, "[APP] Skopiowano template: "+fileName)
 		}
 		return nil
 	})
-	
+
 	if err!= nil {
 		runtime.LogWarning(a.ctx, "[APP] Błąd kopiowania templates: "+err.Error())
 	}
@@ -130,6 +129,126 @@ func (a *App) CreateProject(fullPath string, gameName string) error {
 	runtime.LogInfo(a.ctx, "[APP] Projekt utworzony pomyślnie")
 	return nil
 }
+
+// ========== NOWE: OBSŁUGA ASSETÓW ==========
+
+// DIALOG - WYBÓR PLIKU GRAFICZNEGO
+func (a *App) SelectImageFile() (string, error) {
+	runtime.LogInfo(a.ctx, "[APP] Otwieram dialog wyboru obrazu")
+	selection, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Wybierz grafikę",
+		Filters: []runtime.FileFilter{
+			{DisplayName: "Obrazy (*.png;*.jpg;*.webp)", Pattern: "*.png;*.jpg;*.jpeg;*.webp"},
+		},
+	})
+	return selection, err
+}
+
+// IMPORT ASSETU Z PREFIXEM
+func (a *App) ImportAsset(sourcePath, projectPath, assetType string) (string, error) {
+	prefixes := map[string]string{
+		"bg": "bg_",
+		"re": "re_",
+		"av": "av_",
+	}
+	prefix, ok := prefixes[assetType]
+	if!ok {
+		err := fmt.Errorf("nieznany typ assetu: %s", assetType)
+		runtime.LogError(a.ctx, "[APP] "+err.Error())
+		return "", err
+	}
+
+	fileName := filepath.Base(sourcePath)
+	fileName = strings.ReplaceAll(fileName, " ", "_")
+	if!strings.HasPrefix(fileName, prefix) {
+		fileName = prefix + fileName
+	}
+
+	destDir := filepath.Join(projectPath, "GameImages")
+	destPath := filepath.Join(destDir, fileName)
+
+	runtime.LogInfo(a.ctx, "[APP] Kopiuję asset: "+sourcePath+" -> "+destPath)
+
+	src, err := os.Open(sourcePath)
+	if err!= nil {
+		runtime.LogError(a.ctx, "[APP] Błąd otwarcia źródła: "+err.Error())
+		return "", err
+	}
+	defer src.Close()
+
+	dst, err := os.Create(destPath)
+	if err!= nil {
+		runtime.LogError(a.ctx, "[APP] Błąd tworzenia pliku docelowego: "+err.Error())
+		return "", err
+	}
+	defer dst.Close()
+
+	if _, err = io.Copy(dst, src); err!= nil {
+		runtime.LogError(a.ctx, "[APP] Błąd kopiowania: "+err.Error())
+		return "", err
+	}
+
+	relPath := "images/" + fileName
+	runtime.LogInfo(a.ctx, "[APP] Zaimportowano asset: "+relPath)
+	return relPath, nil
+}
+
+// LISTA ASSETÓW Z GAMEIMAGES
+func (a *App) ListAssets(projectPath string) ([]string, error) {
+	dir := filepath.Join(projectPath, "GameImages")
+	runtime.LogInfo(a.ctx, "[APP] Listuję assety z: "+dir)
+
+	files, err := os.ReadDir(dir)
+	if err!= nil {
+		if os.IsNotExist(err) {
+			runtime.LogWarning(a.ctx, "[APP] Folder GameImages nie istnieje")
+			return []string{}, nil
+		}
+		runtime.LogError(a.ctx, "[APP] Błąd odczytu GameImages: "+err.Error())
+		return nil, err
+	}
+
+	var assets []string
+	for _, f := range files {
+		if!f.IsDir() {
+			ext := strings.ToLower(filepath.Ext(f.Name()))
+			if ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".webp" {
+				assets = append(assets, "images/"+f.Name())
+			}
+		}
+	}
+	runtime.LogInfo(a.ctx, fmt.Sprintf("[APP] Znaleziono %d assetów", len(assets)))
+	return assets, nil
+}
+
+// DODANE: ZWRACA OBRAZEK JAKO BASE64 DATA URL
+func (a *App) GetImageBase64(projectPath, relPath string) (string, error) {
+	fileName := strings.TrimPrefix(relPath, "images/")
+	fullPath := filepath.Join(projectPath, "GameImages", fileName)
+
+	data, err := os.ReadFile(fullPath)
+	if err!= nil {
+		runtime.LogError(a.ctx, "[APP] Błąd odczytu obrazka: "+err.Error())
+		return "", err
+	}
+
+	ext := strings.ToLower(filepath.Ext(fileName))
+	mime := "image/jpeg"
+	if ext == ".png" {
+		mime = "image/png"
+	} else if ext == ".webp" {
+		mime = "image/webp"
+	} else if ext == ".gif" {
+		mime = "image/gif"
+	}
+
+	b64 := base64.StdEncoding.EncodeToString(data)
+	dataUrl := fmt.Sprintf("data:%s;base64,%s", mime, b64)
+	runtime.LogDebug(a.ctx, "[APP] Zwracam base64 dla: "+fileName)
+	return dataUrl, nil
+}
+
+// ========== STARE FUNKCJE BEZ ZMIAN ==========
 
 // ODCZYT JSONA
 func (a *App) ReadJSON(path string) (string, error) {
@@ -159,13 +278,13 @@ func (a *App) GetRecentProjects() ([]string, error) {
 		return []string{}, nil
 	}
 	configFile := filepath.Join(configDir, "janusz-editor", "recent.json")
-	
+
 	data, err := os.ReadFile(configFile)
 	if err!= nil {
 		runtime.LogInfo(a.ctx, "[APP] Brak pliku recent.json")
 		return []string{}, nil
 	}
-	
+
 	var recent []string
 	json.Unmarshal(data, &recent)
 	runtime.LogInfo(a.ctx, fmt.Sprintf("[APP] Załadowano %d ostatnich projektów", len(recent)))
@@ -174,7 +293,7 @@ func (a *App) GetRecentProjects() ([]string, error) {
 
 func (a *App) AddRecentProject(path string) error {
 	recent, _ := a.GetRecentProjects()
-	
+
 	// Wywal duplikat
 	for i, p := range recent {
 		if p == path {
@@ -182,19 +301,19 @@ func (a *App) AddRecentProject(path string) error {
 			break
 		}
 	}
-	
+
 	// Dodaj na początek
 	recent = append([]string{path}, recent...)
-	
+
 	// Max 10
 	if len(recent) > 10 {
 		recent = recent[:10]
 	}
-	
+
 	configDir, _ := os.UserConfigDir()
 	configPath := filepath.Join(configDir, "janusz-editor")
 	os.MkdirAll(configPath, 0755)
-	
+
 	data, _ := json.MarshalIndent(recent, "", " ")
 	configFile := filepath.Join(configPath, "recent.json")
 	runtime.LogInfo(a.ctx, "[APP] Zapisuję recent: "+path)
@@ -204,13 +323,13 @@ func (a *App) AddRecentProject(path string) error {
 // LISTA PLIKÓW W FOLDERZE
 func (a *App) ListFiles(folderPath string, extension string) ([]string, error) {
 	runtime.LogInfo(a.ctx, "[APP] Skanuję: "+folderPath+" szukam: "+extension)
-	
+
 	files, err := os.ReadDir(folderPath)
 	if err!= nil {
 		runtime.LogWarning(a.ctx, "[APP] Folder nie istnieje: "+folderPath)
 		return []string{}, nil
 	}
-	
+
 	var result []string
 	for _, file := range files {
 		if!file.IsDir() && filepath.Ext(file.Name()) == extension {

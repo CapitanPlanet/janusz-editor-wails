@@ -1,7 +1,59 @@
 <script setup>
+import { ref, onMounted, watch } from 'vue'
 import { useProjectStore } from '../stores/projectStore'
+import { SelectImageFile, ImportAsset, ListAssets, GetImageBase64 } from '../../wailsjs/go/main/App'
 
 const store = useProjectStore()
+const assets = ref([])
+const assetCache = ref({}) // cache base64
+
+async function refreshAssets() {
+  if (!store.projectPath) {
+    assets.value = []
+    assetCache.value = {}
+    return
+  }
+  try {
+    const list = await ListAssets(store.projectPath)
+    assets.value = list || []
+    
+    // preload base64 dla wszystkich assetów
+    for (const asset of assets.value) {
+      if (!assetCache.value[asset]) {
+        const b64 = await GetImageBase64(store.projectPath, asset)
+        assetCache.value[asset] = b64
+      }
+    }
+    console.log('[SIDEPANEL] Załadowano assety:', assets.value.length)
+  } catch (e) {
+    console.warn('[SIDEPANEL] Błąd ładowania assetów:', e)
+    assets.value = []
+  }
+}
+
+function getAssetUrl(relPath) {
+  return assetCache.value[relPath] || ''
+}
+
+async function importAsset(type) {
+  if (!store.projectPath) {
+    alert('Najpierw otwórz lub stwórz projekt')
+    return
+  }
+  
+  const filePath = await SelectImageFile()
+  if (!filePath) return
+  
+  try {
+    const relPath = await ImportAsset(filePath, store.projectPath, type)
+    await refreshAssets()
+    await store.loadAssets()
+    console.log('[SIDEPANEL] Zaimportowano:', relPath)
+  } catch (e) {
+    console.error('[SIDEPANEL] Błąd importu:', e)
+    alert(`Błąd importu: ${e}`)
+  }
+}
 
 function selectDay(day) {
   store.currentDay = day
@@ -17,6 +69,14 @@ function addDay() {
   }
   store.addDay(dayName)
 }
+
+onMounted(() => {
+  refreshAssets()
+})
+
+watch(() => store.projectPath, () => {
+  refreshAssets()
+})
 </script>
 
 <template>
@@ -24,6 +84,32 @@ function addDay() {
     <div class="panel-section">
       <h3>PROJEKT JANUSZA</h3>
       <div class="project-name">{{ store.meta?.gameName || 'Brak' }}</div>
+    </div>
+
+    <div class="panel-section">
+      <div class="section-header">
+        <h4>ASSETY</h4>
+      </div>
+      <div class="asset-buttons">
+        <button @click="importAsset('bg')" class="btn-asset bg">+ Tło</button>
+        <button @click="importAsset('re')" class="btn-asset re">+ Reakcja</button>
+        <button @click="importAsset('av')" class="btn-asset av">+ Avatar</button>
+      </div>
+      <div class="asset-count">
+        Zaimportowano: {{ assets.length }} plików
+      </div>
+
+      <div v-if="assets.length" class="asset-list">
+        <div 
+          v-for="asset in assets" 
+          :key="asset" 
+          class="asset-item"
+          :title="asset"
+        >
+          <img :src="getAssetUrl(asset)" :alt="asset" />
+          <span>{{ asset.replace('images/', '') }}</span>
+        </div>
+      </div>
     </div>
 
     <div class="panel-section">
@@ -47,6 +133,81 @@ function addDay() {
 </template>
 
 <style scoped>
+.asset-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.btn-asset {
+  padding: 8px;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.2s;
+  border-radius: 4px;
+}
+.btn-asset.bg { background: #0ea5e9; }
+.btn-asset.bg:hover { background: #0284c7; }
+.btn-asset.re { background: #f59e0b; }
+.btn-asset.re:hover { background: #d97706; }
+.btn-asset.av { background: #8b5cf6; }
+.btn-asset.av:hover { background: #7c3aed; }
+
+.asset-count {
+  font-size: 11px;
+  color: #64748b;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.asset-list {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.asset-list::-webkit-scrollbar {
+  width: 6px;
+}
+.asset-list::-webkit-scrollbar-track {
+  background: rgba(30, 41, 59, 0.4);
+  border-radius: 3px;
+}
+.asset-list::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 3px;
+}
+.asset-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px;
+  background: rgba(30, 41, 59, 0.6);
+  border-radius: 4px;
+  font-size: 11px;
+  color: #94a3b8;
+}
+.asset-item img {
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+  border-radius: 3px;
+  flex-shrink: 0;
+  border: 1px solid #334155;
+}
+.asset-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: monospace;
+}
+
 .side-panel {
   background: rgba(10, 22, 40, 0.85);
   border-right: 1px solid rgba(51, 65, 85, 0.3);
@@ -86,6 +247,7 @@ function addDay() {
   cursor: pointer;
   font-size: 14px;
   line-height: 1;
+  border-radius: 3px;
 }
 .btn-mini:hover {
   background: #22c55e;
@@ -100,6 +262,7 @@ function addDay() {
   cursor: pointer;
   border-left: 3px solid transparent;
   transition: all 0.2s;
+  border-radius: 3px;
 }
 .day-item:hover {
   background: rgba(51, 65, 85, 0.8);

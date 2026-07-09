@@ -6,7 +6,7 @@ const store = useProjectStore()
 
 const scene = computed(() => store.currentScene)
 const sceneIds = computed(() => store.sceneIdsInCurrentDay)
-const backgrounds = computed(() => store.assets.images)
+const backgrounds = computed(() => store.backgroundAssets) // było: store.assets.images
 
 function updateScene(field: string, value: any) {
   store.updateCurrentScene(field, value)

@@ -4,7 +4,7 @@ import { SelectFolder, CreateProject, AddRecentProject, GetRecentProjects, GetDe
 import { BrowserOpenURL } from '../../wailsjs/runtime/runtime'
 import { useProjectStore } from '../stores/projectStore'
 
-import januszLogo from '../assets/janusz_menu_header.png'
+import januszLogo from '../assets/janusz_logo_clean.png'
 import bgImage from '../assets/bg.png'
 import tutorialImage from '../assets/tutorial_bg.jpg'
 
