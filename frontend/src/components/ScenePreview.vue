@@ -63,22 +63,17 @@ watch(() => store.currentScene?.Background, async (newBg) => {
   position: relative;
   width: 100%;
   height: 100%;
-  background-size: contain;        /* BYŁO: cover */
-  background-repeat: no-repeat;    /* DODAJ TO */
+  background-size: contain;
+  background-repeat: no-repeat;
   background-position: center;
   background-color: #000;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  padding: 24px;
 }
 
-.preview-stage::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.7) 70%);
-}
+/* USUNIĘTO.preview-stage::before - TO ROBIŁO SHADOW */
+
 .no-bg {
   position: absolute;
   inset: 0;
@@ -92,6 +87,8 @@ watch(() => store.currentScene?.Background, async (newBg) => {
 .preview-text {
   position: relative;
   z-index: 1;
+  background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.9) 100%);
+  padding: 16px 24px 24px 24px;
 }
 .preview-text h2 {
   color: var(--accent);
@@ -99,6 +96,7 @@ watch(() => store.currentScene?.Background, async (newBg) => {
   margin: 0 0 8px 0;
   text-transform: uppercase;
   letter-spacing: 1px;
+  text-shadow: 0 2px 6px rgba(0,0,0,1);
 }
 .preview-text p {
   color: #fff;
@@ -106,6 +104,7 @@ watch(() => store.currentScene?.Background, async (newBg) => {
   line-height: 1.5;
   margin: 0;
   white-space: pre-wrap;
+  text-shadow: 0 2px 6px rgba(0,0,0,1);
 }
 .no-scene {
   display: flex;
