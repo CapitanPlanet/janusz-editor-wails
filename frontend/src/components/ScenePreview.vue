@@ -63,7 +63,8 @@ watch(() => store.currentScene?.Background, async (newBg) => {
   position: relative;
   width: 100%;
   height: 100%;
-  background-size: cover;
+  background-size: contain;        /* BYŁO: cover */
+  background-repeat: no-repeat;    /* DODAJ TO */
   background-position: center;
   background-color: #000;
   display: flex;
@@ -71,6 +72,7 @@ watch(() => store.currentScene?.Background, async (newBg) => {
   justify-content: flex-end;
   padding: 24px;
 }
+
 .preview-stage::before {
   content: '';
   position: absolute;

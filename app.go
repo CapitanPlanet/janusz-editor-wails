@@ -15,7 +15,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-//go:embed templates
+//go:embed frontend/templates
 var templatesFS embed.FS
 
 type App struct {
@@ -47,14 +47,14 @@ func (a *App) GetDefaultProjectPath() string {
 	return defaultPath
 }
 
-// TWORZENIE PROJEKTU - JEDYNA WERSJA
+// TWORZENIE PROJEKTU - POPRAWIONA WERSJA
 func (a *App) CreateProject(fullPath string, gameName string) error {
 	runtime.LogInfo(a.ctx, "[APP] Tworzę projekt: "+fullPath)
 
-	// 1. Foldery - nowa struktura
+	// 1. Foldery
 	dirs := []string{
 		filepath.Join(fullPath, "Data"),
-		filepath.Join(fullPath, "GameImages"), // <-- tu lądują wszystkie obrazki gry
+		filepath.Join(fullPath, "GameImages"),
 		filepath.Join(fullPath, "sounds"),
 	}
 	for _, dir := range dirs {
@@ -84,7 +84,7 @@ func (a *App) CreateProject(fullPath string, gameName string) error {
 		{
 			"Id": "start",
 			"SceneTitle": "Początek",
-			"Background": "images/bg_tutorial.jpg", // <-- zmiana na prefix bg_
+			"Background": "images/bg_tutorial.jpg",
 			"Text": "Witaj w Edytorze Janusza. To jest pierwsza scena Twojej gry. Kliknij Instrukcja Obsługi w menu głównym.",
 			"Choices": []interface{}{},
 		},
@@ -94,9 +94,21 @@ func (a *App) CreateProject(fullPath string, gameName string) error {
 		return err
 	}
 
-	// 4. Kopiuj tutorial z templates do GameImages - używamy embed
-	err := fs.WalkDir(templatesFS, "templates/Assets", func(path string, d fs.DirEntry, err error) error {
+	// 4. DEBUG: Sprawdź co embed widzi
+	entries, err := fs.ReadDir(templatesFS, "frontend/templates/Assets")
+	if err!= nil {
+		runtime.LogError(a.ctx, "[APP] Błąd odczytu embed: "+err.Error())
+	} else {
+		runtime.LogInfo(a.ctx, fmt.Sprintf("[APP] Embed widzi %d plików w Assets", len(entries)))
+		for _, e := range entries {
+			runtime.LogInfo(a.ctx, "[APP] Embed plik: " + e.Name())
+		}
+	}
+
+	// 5. Kopiuj templates/Assets do GameImages
+	err = fs.WalkDir(templatesFS, "frontend/templates/Assets", func(path string, d fs.DirEntry, err error) error {
 		if err!= nil {
+			runtime.LogError(a.ctx, "[APP] WalkDir error: "+err.Error())
 			return err
 		}
 		if d.IsDir() {
@@ -105,19 +117,17 @@ func (a *App) CreateProject(fullPath string, gameName string) error {
 
 		data, err := templatesFS.ReadFile(path)
 		if err!= nil {
-			runtime.LogWarning(a.ctx, "[APP] Nie mogę odczytać template: "+path)
-			return nil // nie przerywaj jak brakuje
+			runtime.LogWarning(a.ctx, "[APP] Nie mogę odczytać template: "+path+" err: "+err.Error())
+			return nil
 		}
 
-		// Zmieniamy dest: wszystko z templates/Assets ląduje w GameImages
 		fileName := filepath.Base(path)
 		destPath := filepath.Join(fullPath, "GameImages", fileName)
-		os.MkdirAll(filepath.Dir(destPath), 0755)
-
+		
 		if err := os.WriteFile(destPath, data, 0644); err!= nil {
-			runtime.LogWarning(a.ctx, "[APP] Nie mogę skopiować: "+destPath)
+			runtime.LogWarning(a.ctx, "[APP] Nie mogę skopiować: "+destPath+" err: "+err.Error())
 		} else {
-			runtime.LogInfo(a.ctx, "[APP] Skopiowano template: "+fileName)
+			runtime.LogInfo(a.ctx, "[APP] Skopiowano template: "+fileName+" -> "+destPath)
 		}
 		return nil
 	})
