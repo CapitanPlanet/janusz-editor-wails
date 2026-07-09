@@ -19,7 +19,8 @@ const isCreating = ref(false)
 
 async function loadRecentProjects() {
   try {
-    recentProjects.value = await GetRecentProjects()
+    const all = await GetRecentProjects()
+    recentProjects.value = all.slice(0, 5)
   } catch (e) {
     console.error('Błąd ładowania ostatnich:', e)
     recentProjects.value = []
@@ -149,18 +150,19 @@ onMounted(loadRecentProjects)
       <h3>Nowy projekt Janusza</h3>
 
       <div class="form-group">
-        <label>Nazwa projektu:</label>
+        <label>NAZWA PROJEKTU:</label>
         <input
           v-model="newProjectName"
           placeholder="MojaSuperGra"
           @keyup.enter="createProject"
           @keyup.esc="showNewProjectModal = false"
           autofocus
+          maxlength="50"
         />
       </div>
 
       <div class="form-group">
-        <label>Lokalizacja:</label>
+        <label>LOKALIZACJA:</label>
         <div class="folder-picker">
           <input :value="selectedFolder" type="text" readonly placeholder="Kliknij Przeglądaj..." />
           <button @click="pickFolder">Przeglądaj...</button>
@@ -409,7 +411,9 @@ onMounted(loadRecentProjects)
   border: 2px solid #16a34a;
   min-width: 500px;
   max-width: 90%;
+  width: 500px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+  box-sizing: border-box;
 }
 
 .modal-content h3 {
@@ -443,6 +447,9 @@ onMounted(loadRecentProjects)
   font-size: 14px;
   border-radius: 4px;
   font-family: 'Consolas', monospace;
+  box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .form-group input:focus {
@@ -459,6 +466,7 @@ onMounted(loadRecentProjects)
 .folder-picker input {
   flex: 1;
   margin: 0;
+  min-width: 0;
 }
 
 .folder-picker button {
@@ -470,6 +478,7 @@ onMounted(loadRecentProjects)
   cursor: pointer;
   white-space: nowrap;
   font-weight: 600;
+  flex-shrink: 0;
 }
 
 .folder-picker button:hover {
@@ -483,6 +492,9 @@ onMounted(loadRecentProjects)
   font-size: 11px;
   text-align: left;
   font-family: 'Consolas', monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .modal-buttons {
