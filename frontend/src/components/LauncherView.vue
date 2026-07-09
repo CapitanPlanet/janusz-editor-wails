@@ -123,14 +123,16 @@ onMounted(loadRecentProjects)
 
       <div v-if="recentProjects.length" class="recent">
         <h3>OSTATNIE PROJEKTY</h3>
-        <div
-          v-for="p in recentProjects"
-          :key="p"
-          @click="openRecent(p)"
-          class="recent-item"
-        >
-          📁 {{ getProjectName(p) }}
-          <span class="recent-path">{{ p }}</span>
+        <div class="recent-list">
+          <div
+            v-for="p in recentProjects"
+            :key="p"
+            @click="openRecent(p)"
+            class="recent-item"
+          >
+            📁 {{ getProjectName(p) }}
+            <span class="recent-path">{{ p }}</span>
+          </div>
         </div>
       </div>
 
@@ -297,6 +299,34 @@ onMounted(loadRecentProjects)
   text-transform: uppercase;
 }
 
+/* NOWE: WRAPPER Z SCROLLEM */
+.recent-list {
+  max-height: 280px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 8px;
+  margin-right: -8px;
+}
+
+/* Stylowanie scrollbara */
+.recent-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.recent-list::-webkit-scrollbar-track {
+  background: #0a1628;
+  border-radius: 4px;
+}
+
+.recent-list::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+
+.recent-list::-webkit-scrollbar-thumb:hover {
+  background: #4ade80;
+}
+
 .recent-item {
   padding: 12px 16px;
   background: #1e293b;
@@ -311,6 +341,10 @@ onMounted(loadRecentProjects)
   width: 320px;
   margin-left: auto;
   margin-right: auto;
+}
+
+.recent-item:last-child {
+  margin-bottom: 0;
 }
 
 .recent-item:hover {
