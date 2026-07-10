@@ -1,12 +1,13 @@
 package main
 
 import (
+	"io"
 	"context"
 	"embed"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
+	"log"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -101,7 +102,7 @@ func (a *App) CreateProject(fullPath string, gameName string) error {
 	} else {
 		runtime.LogInfo(a.ctx, fmt.Sprintf("[APP] Embed widzi %d plików w Assets", len(entries)))
 		for _, e := range entries {
-			runtime.LogInfo(a.ctx, "[APP] Embed plik: " + e.Name())
+			runtime.LogInfo(a.ctx, "[APP] Embed plik: "+e.Name())
 		}
 	}
 
@@ -123,7 +124,7 @@ func (a *App) CreateProject(fullPath string, gameName string) error {
 
 		fileName := filepath.Base(path)
 		destPath := filepath.Join(fullPath, "GameImages", fileName)
-		
+
 		if err := os.WriteFile(destPath, data, 0644); err!= nil {
 			runtime.LogWarning(a.ctx, "[APP] Nie mogę skopiować: "+destPath+" err: "+err.Error())
 		} else {
@@ -231,7 +232,7 @@ func (a *App) ListAssets(projectPath string) ([]string, error) {
 	return assets, nil
 }
 
-// DODANE: ZWRACA OBRAZEK JAKO BASE64 DATA URL
+// ZWRACA OBRAZEK JAKO BASE64 DATA URL
 func (a *App) GetImageBase64(projectPath, relPath string) (string, error) {
 	fileName := strings.TrimPrefix(relPath, "images/")
 	fullPath := filepath.Join(projectPath, "GameImages", fileName)
@@ -258,7 +259,42 @@ func (a *App) GetImageBase64(projectPath, relPath string) (string, error) {
 	return dataUrl, nil
 }
 
-// ========== STARE FUNKCJE BEZ ZMIAN ==========
+// USUWA ASSET Z PROJEKTU
+// DeleteAsset usuwa plik assetu z projektu
+// DeleteAsset usuwa plik assetu z projektu
+func (a *App) DeleteAsset(projectPath string, relPath string) error {
+	log.Printf("[APP] Usuwanie assetu: %s z %s", relPath, projectPath)
+	
+	// Wywal "images/" z początku ścieżki
+	fileName := strings.TrimPrefix(relPath, "images/")
+	fileName = strings.TrimPrefix(fileName, "GameImages/")
+	
+	// Prawdziwa ścieżka to GameImages/nazwa.jpg
+	fullPath := filepath.Join(projectPath, "GameImages", fileName)
+	cleanPath := filepath.Clean(fullPath)
+	
+	// Bezpieczeństwo: sprawdź czy nie wychodzi poza GameImages
+	gameImagesDir := filepath.Join(projectPath, "GameImages")
+	if !strings.HasPrefix(cleanPath, filepath.Clean(gameImagesDir)) {
+		return fmt.Errorf("niedozwolona ścieżka: %s", relPath)
+	}
+	
+	// Sprawdź czy istnieje
+	if _, err := os.Stat(cleanPath); os.IsNotExist(err) {
+		log.Printf("[APP] Plik nie istnieje: %s", cleanPath)
+		return fmt.Errorf("plik nie istnieje: %s", fileName)
+	}
+	
+	// Usuń
+	if err := os.Remove(cleanPath); err != nil {
+		log.Printf("[APP] Błąd usuwania %s: %v", cleanPath, err)
+		return fmt.Errorf("nie można usunąć pliku: %w", err)
+	}
+	
+	log.Printf("[APP] Usunięto asset: %s", fileName)
+	return nil
+}
+
 
 // ODCZYT JSONA
 func (a *App) ReadJSON(path string) (string, error) {
