@@ -10,6 +10,14 @@ export function CreateProject(arg1, arg2) {
   return window['go']['main']['App']['CreateProject'](arg1, arg2);
 }
 
+export function DeleteAsset(arg1, arg2) {
+  return window['go']['main']['App']['DeleteAsset'](arg1, arg2);
+}
+
+export function DeleteDay(arg1, arg2) {
+  return window['go']['main']['App']['DeleteDay'](arg1, arg2);
+}
+
 export function GetDefaultProjectPath() {
   return window['go']['main']['App']['GetDefaultProjectPath']();
 }

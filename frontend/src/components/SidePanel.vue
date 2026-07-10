@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { useProjectStore } from '../stores/projectStore'
-import { SelectImageFile, ImportAsset, ListAssets, GetImageBase64 } from '../../wailsjs/go/main/App'
+import { SelectImageFile, ImportAsset, ListAssets, GetImageBase64, DeleteAsset, DeleteDay } from '../../wailsjs/go/main/App'
 
 const store = useProjectStore()
 const assets = ref([])
@@ -55,6 +55,22 @@ async function importAsset(type) {
   }
 }
 
+async function deleteAsset(asset) {
+  if (!store.projectPath) return
+  if (!confirm(`Na pewno usunąć ${asset.replace('images/', '')}?`)) return
+  
+  try {
+    await DeleteAsset(store.projectPath, asset)
+    delete assetCache.value[asset]
+    await refreshAssets()
+    await store.loadAssets()
+    console.log('[SIDEPANEL] Usunięto:', asset)
+  } catch (e) {
+    console.error('[SIDEPANEL] Błąd usuwania:', e)
+    alert(`Błąd usuwania: ${e}`)
+  }
+}
+
 function selectDay(day) {
   store.currentDay = day
   store.currentSceneId = store.days[day]?.[0]?.Id || null
@@ -68,6 +84,34 @@ function addDay() {
     return
   }
   store.addDay(dayName)
+}
+
+async function deleteDay(day) {
+  if (!store.projectPath) return
+  if (Object.keys(store.days).length <= 1) {
+    alert('Nie możesz usunąć ostatniego dnia!')
+    return
+  }
+  if (!confirm(`Na pewno usunąć dzień "${day}"?\nWszystkie sceny w tym dniu przepadną na zawsze!`)) return
+  
+  try {
+    await DeleteDay(store.projectPath, day)
+    delete store.days[day]
+    
+    // Jeśli to był currentDay, przełącz na pierwszy
+    if (store.currentDay === day) {
+      const firstDay = Object.keys(store.days)[0] || null
+      store.currentDay = firstDay
+      store.currentSceneId = firstDay? store.days[firstDay]?.[0]?.Id : null
+    }
+    
+    // Przeładuj cały projekt żeby odświeżyć listę dni
+    await store.loadProjectFromPath(store.projectPath)
+    console.log('[SIDEPANEL] Usunięto dzień:', day)
+  } catch (e) {
+    console.error('[SIDEPANEL] Błąd usuwania dnia:', e)
+    alert(`Błąd usuwania dnia: ${e}`)
+  }
 }
 
 onMounted(() => {
@@ -108,6 +152,7 @@ watch(() => store.projectPath, () => {
         >
           <img :src="getAssetUrl(asset)" :alt="asset" />
           <span>{{ asset.replace('images/', '') }}</span>
+          <button @click.stop="deleteAsset(asset)" class="btn-delete" title="Usuń">✕</button>
         </div>
       </div>
     </div>
@@ -127,6 +172,7 @@ watch(() => store.projectPath, () => {
         <span class="day-icon">📁</span>
         <span class="day-name">{{ day }}</span>
         <span class="scene-count">{{ store.days[day]?.length || 0 }}</span>
+        <button @click.stop="deleteDay(day)" class="btn-delete" title="Usuń dzień">✕</button>
       </div>
     </div>
   </aside>
@@ -192,6 +238,7 @@ watch(() => store.projectPath, () => {
   border-radius: 4px;
   font-size: 11px;
   color: #94a3b8;
+  position: relative;
 }
 .asset-item img {
   width: 32px;
@@ -206,6 +253,30 @@ watch(() => store.projectPath, () => {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: monospace;
+  flex: 1;
+}
+.btn-delete {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: #dc2626;
+  border: 1px solid #ef4444;
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  border-radius: 3px;
+  flex-shrink: 0;
+  opacity: 1;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-delete:hover {
+  background: #ef4444;
+  transform: scale(1.2);
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.8);
 }
 
 .side-panel {
@@ -263,6 +334,7 @@ watch(() => store.projectPath, () => {
   border-left: 3px solid transparent;
   transition: all 0.2s;
   border-radius: 3px;
+  position: relative;
 }
 .day-item:hover {
   background: rgba(51, 65, 85, 0.8);
@@ -280,6 +352,9 @@ watch(() => store.projectPath, () => {
   font-size: 13px;
   font-family: monospace;
   color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .scene-count {
   font-size: 11px;
@@ -287,5 +362,7 @@ watch(() => store.projectPath, () => {
   background: rgba(0,0,0,0.3);
   padding: 2px 6px;
   border-radius: 10px;
+  flex-shrink: 0;
 }
+
 </style>

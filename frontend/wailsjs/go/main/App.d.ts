@@ -5,6 +5,10 @@ export function AddRecentProject(arg1:string):Promise<void>;
 
 export function CreateProject(arg1:string,arg2:string):Promise<void>;
 
+export function DeleteAsset(arg1:string,arg2:string):Promise<void>;
+
+export function DeleteDay(arg1:string,arg2:string):Promise<void>;
+
 export function GetDefaultProjectPath():Promise<string>;
 
 export function GetImageBase64(arg1:string,arg2:string):Promise<string>;

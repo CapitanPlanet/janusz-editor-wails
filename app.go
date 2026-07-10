@@ -295,6 +295,35 @@ func (a *App) DeleteAsset(projectPath string, relPath string) error {
 	return nil
 }
 
+// DeleteDay usuwa folder dnia z projektu
+func (a *App) DeleteDay(projectPath string, dayName string) error {
+	log.Printf("[APP] Usuwanie dnia: %s z %s", dayName, projectPath)
+	
+	// Ścieżka do folderu Data
+	dataDir := filepath.Join(projectPath, "Data")
+	dayFile := filepath.Join(dataDir, dayName+".json")
+	
+	cleanPath := filepath.Clean(dayFile)
+	
+	// Bezpieczeństwo
+	if!strings.HasPrefix(cleanPath, filepath.Clean(dataDir)) {
+		return fmt.Errorf("niedozwolona ścieżka: %s", dayName)
+	}
+	
+	// Sprawdź czy istnieje
+	if _, err := os.Stat(cleanPath); os.IsNotExist(err) {
+		return fmt.Errorf("dzień nie istnieje: %s", dayName)
+	}
+	
+	// Usuń
+	if err := os.Remove(cleanPath); err!= nil {
+		log.Printf("[APP] Błąd usuwania dnia %s: %v", cleanPath, err)
+		return fmt.Errorf("nie można usunąć dnia: %w", err)
+	}
+	
+	log.Printf("[APP] Usunięto dzień: %s", dayName)
+	return nil
+}
 
 // ODCZYT JSONA
 func (a *App) ReadJSON(path string) (string, error) {
