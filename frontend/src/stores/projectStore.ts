@@ -5,7 +5,7 @@ import {
   WriteJSON,
   SelectFolder,
   ListFiles,
-  ListAssets // <-- DODANE
+  ListAssets
 } from '../../wailsjs/go/main/App'
 
 interface Choice {
@@ -54,8 +54,8 @@ export const useProjectStore = defineStore('project', {
     currentDay: 'day1' as string,
     currentSceneId: null as string | null,
     assets: {
-      all: [] as string[], // <-- DODANE: wszystkie assety z GameImages
-      images: [] as string[], // zostawiam dla kompatybilności
+      all: [] as string[],
+      images: [] as string[],
       sounds: [] as string[]
     },
     saveStatus: ''
@@ -80,17 +80,21 @@ export const useProjectStore = defineStore('project', {
 
     dayFileList: (state) => Object.keys(state.days),
 
-    // ZMIENIONE: teraz filtrujemy po prefixach
     backgroundAssets: (state) => state.assets.all.filter(a => a.startsWith('images/bg_')),
     reactionAssets: (state) => state.assets.all.filter(a => a.startsWith('images/re_')),
     avatarAssets: (state) => state.assets.all.filter(a => a.startsWith('images/av_')),
     
-    // stare gettery zostawiam żeby nic nie wybuchło
     availableBackgrounds: (state) => state.assets.all.filter(a => a.startsWith('images/bg_')),
     availableSounds: (state) => state.assets.sounds
   },
 
   actions: {
+    // DODANE: brakowało tej akcji
+    selectScene(sceneId: string) {
+      this.currentSceneId = sceneId
+      console.log('[STORE] Wybrano scenę:', sceneId)
+    },
+
     ensureChoiceIds(scene: Scene) {
       if (scene?.Choices) {
         scene.Choices.forEach((c: Choice) => {
@@ -99,7 +103,6 @@ export const useProjectStore = defineStore('project', {
       }
     },
 
-    // NOWA AKCJA: ładuje assety z GameImages przez Go
     async loadAssets() {
       if (!this.projectPath) {
         this.assets.all = []
@@ -109,7 +112,7 @@ export const useProjectStore = defineStore('project', {
       try {
         const list = await ListAssets(this.projectPath)
         this.assets.all = list || []
-        this.assets.images = list || [] // wsteczna kompatybilność
+        this.assets.images = list || []
         console.log('[STORE] Załadowano assety:', this.assets.all.length)
       } catch (e) {
         console.error('[STORE] Błąd ładowania assetów:', e)
@@ -122,7 +125,7 @@ export const useProjectStore = defineStore('project', {
       try {
         await CreateProject(fullProjectPath, gameName)
         await this.loadProjectFromPath(fullProjectPath)
-        await this.loadAssets() // <-- DODANE
+        await this.loadAssets()
         console.log('[STORE] Utworzono nowy projekt:', fullProjectPath)
         return fullProjectPath
       } catch (e) {
@@ -136,10 +139,11 @@ export const useProjectStore = defineStore('project', {
 
       try {
         const metaRaw = await ReadJSON(`${path}/project.janproj`)
-        this.meta = JSON.parse(metaRaw)
+        const parsedMeta = JSON.parse(metaRaw) as ProjectMeta
+        this.meta = parsedMeta // <-- TS teraz wie że to nie null
 
         const day1Raw = await ReadJSON(`${path}/Data/day1.json`)
-        const day1Data = JSON.parse(day1Raw)
+        const day1Data = JSON.parse(day1Raw) as Scene[]
         
         day1Data.forEach((scene: Scene) => this.ensureChoiceIds(scene))
         
@@ -147,10 +151,11 @@ export const useProjectStore = defineStore('project', {
           day1: day1Data
         }
 
-        this.currentDay = this.meta.startDay || 'day1'
-        this.currentSceneId = this.meta.startScene || this.days[this.currentDay]?.[0]?.Id || null
+        // POPRAWKA: optional chaining bo meta może być null zanim się załaduje
+        this.currentDay = this.meta?.startDay || 'day1'
+        this.currentSceneId = this.meta?.startScene || this.days[this.currentDay]?.[0]?.Id || null
 
-        await this.loadAssets() // <-- ZMIENIONE: wołamy nową akcję
+        await this.loadAssets()
         console.log('[STORE] Załadowano projekt:', this.meta.gameName)
         console.log('[STORE] Dni:', Object.keys(this.days))
 
@@ -161,11 +166,9 @@ export const useProjectStore = defineStore('project', {
       }
     },
 
-    // STARA FUNKCJA: zostawiam ale już nie używamy do obrazów
     async scanAssets() {
       if (!this.projectPath) return
       try {
-        // Dźwięki dalej z Assets/sounds
         const soundsMp3 = (await ListFiles(`${this.projectPath}/sounds`, '.mp3')) || []
         const soundsWav = (await ListFiles(`${this.projectPath}/sounds`, '.wav')) || []
         this.assets.sounds = [...soundsMp3,...soundsWav]
@@ -190,7 +193,7 @@ export const useProjectStore = defineStore('project', {
         const daysToSave = {} as Record<string, Scene[]>
         for (const dayFile of Object.keys(this.days)) {
           daysToSave[dayFile] = this.days[dayFile].map((scene: Scene) => ({
-          ...scene,
+           ...scene,
             Choices: scene.Choices?.map((c: Choice) => {
               const { id,...rest } = c
               return rest
