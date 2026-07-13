@@ -112,14 +112,14 @@ body {
 
 .main-grid {
   display: grid;
-  grid-template-columns: 220px 280px minmax(400px, 1fr) 380px;
+  grid-template-columns: 280px 280px minmax(400px, 1fr) 380px; /* POPRAWIONE: 220px -> 280px */
   gap: 12px;
   padding: 12px;
   flex: 1;
   overflow: hidden;
   min-height: 0;
   padding-bottom: 72px;
-  min-width: 1316px;
+  min-width: 1376px; /* POPRAWIONE: 1316px -> 1376px */
 }
 
 .top-bar {
@@ -154,11 +154,12 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0; /* DODANE */
 }
 
-/* TO JEST KLUCZ - POZWALA DZIECIOM SIĘ SCROLLOWAĆ */
 .panel > * {
   min-height: 0;
+  min-width: 0; /* DODANE */
 }
 
 .panel-preview {

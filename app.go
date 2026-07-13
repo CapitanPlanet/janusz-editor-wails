@@ -21,6 +21,7 @@ var templatesFS embed.FS
 
 type App struct {
 	ctx context.Context
+	projectPath string // <-- DODANE
 }
 
 func NewApp() *App {
@@ -30,6 +31,16 @@ func NewApp() *App {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	runtime.LogInfo(a.ctx, "[APP] Janusz Wails wystartował")
+}
+
+// SETTER/GETTER dla projectPath
+func (a *App) SetProjectPath(path string) {
+	a.projectPath = path
+	runtime.LogInfo(a.ctx, "[APP] Ustawiono projectPath: "+path)
+}
+
+func (a *App) GetProjectPath() string {
+	return a.projectPath
 }
 
 // DIALOG - WYBÓR FOLDERU
@@ -51,6 +62,7 @@ func (a *App) GetDefaultProjectPath() string {
 // TWORZENIE PROJEKTU - POPRAWIONA WERSJA
 func (a *App) CreateProject(fullPath string, gameName string) error {
 	runtime.LogInfo(a.ctx, "[APP] Tworzę projekt: "+fullPath)
+	a.SetProjectPath(fullPath) // <-- USTAW PATH
 
 	// 1. Foldery
 	dirs := []string{
@@ -141,7 +153,7 @@ func (a *App) CreateProject(fullPath string, gameName string) error {
 	return nil
 }
 
-// ========== NOWE: OBSŁUGA ASSETÓW ==========
+// ========== OBSŁUGA ASSETÓW ==========
 
 // DIALOG - WYBÓR PLIKU GRAFICZNEGO
 func (a *App) SelectImageFile() (string, error) {
@@ -155,8 +167,15 @@ func (a *App) SelectImageFile() (string, error) {
 	return selection, err
 }
 
-// IMPORT ASSETU Z PREFIXEM
+// IMPORT ASSETU Z PREFIXEM - TO JEST GŁÓWNA FUNKCJA
 func (a *App) ImportAsset(sourcePath, projectPath, assetType string) (string, error) {
+	if projectPath == "" {
+		projectPath = a.projectPath // fallback na zapisany
+	}
+	if projectPath == "" {
+		return "", fmt.Errorf("brak projectPath - otwórz projekt")
+	}
+
 	prefixes := map[string]string{
 		"bg": "bg_",
 		"re": "re_",
@@ -176,6 +195,7 @@ func (a *App) ImportAsset(sourcePath, projectPath, assetType string) (string, er
 	}
 
 	destDir := filepath.Join(projectPath, "GameImages")
+	os.MkdirAll(destDir, 0755) // upewnij się że folder istnieje
 	destPath := filepath.Join(destDir, fileName)
 
 	runtime.LogInfo(a.ctx, "[APP] Kopiuję asset: "+sourcePath+" -> "+destPath)
@@ -204,8 +224,23 @@ func (a *App) ImportAsset(sourcePath, projectPath, assetType string) (string, er
 	return relPath, nil
 }
 
+// HELPER: ImportReactionImage - używa ImportAsset
+func (a *App) ImportReactionImage() (string, error) {
+	selection, err := a.SelectImageFile()
+	if err!= nil {
+		return "", err
+	}
+	if selection == "" {
+		return "", nil // user anulował
+	}
+	return a.ImportAsset(selection, a.projectPath, "re")
+}
+
 // LISTA ASSETÓW Z GAMEIMAGES
 func (a *App) ListAssets(projectPath string) ([]string, error) {
+	if projectPath == "" {
+		projectPath = a.projectPath
+	}
 	dir := filepath.Join(projectPath, "GameImages")
 	runtime.LogInfo(a.ctx, "[APP] Listuję assety z: "+dir)
 
@@ -234,6 +269,9 @@ func (a *App) ListAssets(projectPath string) ([]string, error) {
 
 // ZWRACA OBRAZEK JAKO BASE64 DATA URL
 func (a *App) GetImageBase64(projectPath, relPath string) (string, error) {
+	if projectPath == "" {
+		projectPath = a.projectPath
+	}
 	fileName := strings.TrimPrefix(relPath, "images/")
 	fullPath := filepath.Join(projectPath, "GameImages", fileName)
 
@@ -260,67 +298,62 @@ func (a *App) GetImageBase64(projectPath, relPath string) (string, error) {
 }
 
 // USUWA ASSET Z PROJEKTU
-// DeleteAsset usuwa plik assetu z projektu
-// DeleteAsset usuwa plik assetu z projektu
 func (a *App) DeleteAsset(projectPath string, relPath string) error {
+	if projectPath == "" {
+		projectPath = a.projectPath
+	}
 	log.Printf("[APP] Usuwanie assetu: %s z %s", relPath, projectPath)
-	
-	// Wywal "images/" z początku ścieżki
+
 	fileName := strings.TrimPrefix(relPath, "images/")
 	fileName = strings.TrimPrefix(fileName, "GameImages/")
-	
-	// Prawdziwa ścieżka to GameImages/nazwa.jpg
+
 	fullPath := filepath.Join(projectPath, "GameImages", fileName)
 	cleanPath := filepath.Clean(fullPath)
-	
-	// Bezpieczeństwo: sprawdź czy nie wychodzi poza GameImages
+
 	gameImagesDir := filepath.Join(projectPath, "GameImages")
-	if !strings.HasPrefix(cleanPath, filepath.Clean(gameImagesDir)) {
+	if!strings.HasPrefix(cleanPath, filepath.Clean(gameImagesDir)) {
 		return fmt.Errorf("niedozwolona ścieżka: %s", relPath)
 	}
-	
-	// Sprawdź czy istnieje
+
 	if _, err := os.Stat(cleanPath); os.IsNotExist(err) {
 		log.Printf("[APP] Plik nie istnieje: %s", cleanPath)
 		return fmt.Errorf("plik nie istnieje: %s", fileName)
 	}
-	
-	// Usuń
-	if err := os.Remove(cleanPath); err != nil {
+
+	if err := os.Remove(cleanPath); err!= nil {
 		log.Printf("[APP] Błąd usuwania %s: %v", cleanPath, err)
 		return fmt.Errorf("nie można usunąć pliku: %w", err)
 	}
-	
+
 	log.Printf("[APP] Usunięto asset: %s", fileName)
 	return nil
 }
 
 // DeleteDay usuwa folder dnia z projektu
 func (a *App) DeleteDay(projectPath string, dayName string) error {
+	if projectPath == "" {
+		projectPath = a.projectPath
+	}
 	log.Printf("[APP] Usuwanie dnia: %s z %s", dayName, projectPath)
-	
-	// Ścieżka do folderu Data
+
 	dataDir := filepath.Join(projectPath, "Data")
 	dayFile := filepath.Join(dataDir, dayName+".json")
-	
+
 	cleanPath := filepath.Clean(dayFile)
-	
-	// Bezpieczeństwo
+
 	if!strings.HasPrefix(cleanPath, filepath.Clean(dataDir)) {
 		return fmt.Errorf("niedozwolona ścieżka: %s", dayName)
 	}
-	
-	// Sprawdź czy istnieje
+
 	if _, err := os.Stat(cleanPath); os.IsNotExist(err) {
 		return fmt.Errorf("dzień nie istnieje: %s", dayName)
 	}
-	
-	// Usuń
+
 	if err := os.Remove(cleanPath); err!= nil {
 		log.Printf("[APP] Błąd usuwania dnia %s: %v", cleanPath, err)
 		return fmt.Errorf("nie można usunąć dnia: %w", err)
 	}
-	
+
 	log.Printf("[APP] Usunięto dzień: %s", dayName)
 	return nil
 }
@@ -369,7 +402,6 @@ func (a *App) GetRecentProjects() ([]string, error) {
 func (a *App) AddRecentProject(path string) error {
 	recent, _ := a.GetRecentProjects()
 
-	// Wywal duplikat
 	for i, p := range recent {
 		if p == path {
 			recent = append(recent[:i], recent[i+1:]...)
@@ -377,10 +409,8 @@ func (a *App) AddRecentProject(path string) error {
 		}
 	}
 
-	// Dodaj na początek
 	recent = append([]string{path}, recent...)
 
-	// Max 10
 	if len(recent) > 10 {
 		recent = recent[:10]
 	}

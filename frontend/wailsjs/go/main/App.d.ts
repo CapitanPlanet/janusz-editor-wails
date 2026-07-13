@@ -13,9 +13,13 @@ export function GetDefaultProjectPath():Promise<string>;
 
 export function GetImageBase64(arg1:string,arg2:string):Promise<string>;
 
+export function GetProjectPath():Promise<string>;
+
 export function GetRecentProjects():Promise<Array<string>>;
 
 export function ImportAsset(arg1:string,arg2:string,arg3:string):Promise<string>;
+
+export function ImportReactionImage():Promise<string>;
 
 export function ListAssets(arg1:string):Promise<Array<string>>;
 
@@ -26,5 +30,7 @@ export function ReadJSON(arg1:string):Promise<string>;
 export function SelectFolder():Promise<string>;
 
 export function SelectImageFile():Promise<string>;
+
+export function SetProjectPath(arg1:string):Promise<void>;
 
 export function WriteJSON(arg1:string,arg2:string):Promise<void>;

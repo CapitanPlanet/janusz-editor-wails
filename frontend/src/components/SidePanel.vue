@@ -5,7 +5,7 @@ import { SelectImageFile, ImportAsset, ListAssets, GetImageBase64, DeleteAsset, 
 
 const store = useProjectStore()
 const assets = ref([])
-const assetCache = ref({}) // cache base64
+const assetCache = ref({})
 
 async function refreshAssets() {
   if (!store.projectPath) {
@@ -16,15 +16,12 @@ async function refreshAssets() {
   try {
     const list = await ListAssets(store.projectPath)
     assets.value = list || []
-    
-    // preload base64 dla wszystkich assetów
     for (const asset of assets.value) {
       if (!assetCache.value[asset]) {
         const b64 = await GetImageBase64(store.projectPath, asset)
         assetCache.value[asset] = b64
       }
     }
-    console.log('[SIDEPANEL] Załadowano assety:', assets.value.length)
   } catch (e) {
     console.warn('[SIDEPANEL] Błąd ładowania assetów:', e)
     assets.value = []
@@ -40,15 +37,12 @@ async function importAsset(type) {
     alert('Najpierw otwórz lub stwórz projekt')
     return
   }
-  
   const filePath = await SelectImageFile()
   if (!filePath) return
-  
   try {
     const relPath = await ImportAsset(filePath, store.projectPath, type)
     await refreshAssets()
     await store.loadAssets()
-    console.log('[SIDEPANEL] Zaimportowano:', relPath)
   } catch (e) {
     console.error('[SIDEPANEL] Błąd importu:', e)
     alert(`Błąd importu: ${e}`)
@@ -58,13 +52,11 @@ async function importAsset(type) {
 async function deleteAsset(asset) {
   if (!store.projectPath) return
   if (!confirm(`Na pewno usunąć ${asset.replace('images/', '')}?`)) return
-  
   try {
     await DeleteAsset(store.projectPath, asset)
     delete assetCache.value[asset]
     await refreshAssets()
     await store.loadAssets()
-    console.log('[SIDEPANEL] Usunięto:', asset)
   } catch (e) {
     console.error('[SIDEPANEL] Błąd usuwania:', e)
     alert(`Błąd usuwania: ${e}`)
@@ -93,21 +85,15 @@ async function deleteDay(day) {
     return
   }
   if (!confirm(`Na pewno usunąć dzień "${day}"?\nWszystkie sceny w tym dniu przepadną na zawsze!`)) return
-  
   try {
     await DeleteDay(store.projectPath, day)
     delete store.days[day]
-    
-    // Jeśli to był currentDay, przełącz na pierwszy
     if (store.currentDay === day) {
       const firstDay = Object.keys(store.days)[0] || null
       store.currentDay = firstDay
       store.currentSceneId = firstDay? store.days[firstDay]?.[0]?.Id : null
     }
-    
-    // Przeładuj cały projekt żeby odświeżyć listę dni
     await store.loadProjectFromPath(store.projectPath)
-    console.log('[SIDEPANEL] Usunięto dzień:', day)
   } catch (e) {
     console.error('[SIDEPANEL] Błąd usuwania dnia:', e)
     alert(`Błąd usuwania dnia: ${e}`)
@@ -124,7 +110,7 @@ watch(() => store.projectPath, () => {
 </script>
 
 <template>
-  <aside class="side-panel">
+  <aside v-if="store.meta" class="side-panel">
     <div class="panel-section">
       <h3>PROJEKT JANUSZA</h3>
       <div class="project-name">{{ store.meta?.gameName || 'Brak' }}</div>
@@ -135,9 +121,15 @@ watch(() => store.projectPath, () => {
         <h4>ASSETY</h4>
       </div>
       <div class="asset-buttons">
-        <button @click="importAsset('bg')" class="btn-asset bg">+ Tło</button>
-        <button @click="importAsset('re')" class="btn-asset re">+ Reakcja</button>
-        <button @click="importAsset('av')" class="btn-asset av">+ Avatar</button>
+        <button @click="importAsset('bg')" class="btn-asset bg">
+          <span>+ Tło</span>
+        </button>
+        <button @click="importAsset('re')" class="btn-asset re">
+          <span>+ Reakcja</span>
+        </button>
+        <button @click="importAsset('av')" class="btn-asset av">
+          <span>+ Avatar</span>
+        </button>
       </div>
       <div class="asset-count">
         Zaimportowano: {{ assets.length }} plików
@@ -179,22 +171,63 @@ watch(() => store.projectPath, () => {
 </template>
 
 <style scoped>
+.side-panel {
+  background: rgba(10, 22, 40, 0.85);
+  border-right: 1px solid rgba(51, 65, 85, 0.3);
+  padding: 16px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  width: 280px;
+  min-width: 280px;
+  max-width: 280px;
+  flex-shrink: 0;
+  flex-grow: 0;
+  height: 100%;
+  box-sizing: border-box;
+  display: block;
+}
+
 .asset-buttons {
   display: flex;
   flex-direction: column;
   gap: 6px;
   margin-bottom: 8px;
+  width: 100%;
+  box-sizing: border-box;
 }
+
 .btn-asset {
-  padding: 8px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  height: 38px;
   border: none;
   color: #fff;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   transition: all 0.2s;
   border-radius: 4px;
+  display: grid;
+  place-items: center;
+  line-height: 1;
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  appearance: none;
+  font-family: inherit;
+  overflow: hidden;
 }
+
+.btn-asset span {
+  display: block;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .btn-asset.bg { background: #0ea5e9; }
 .btn-asset.bg:hover { background: #0284c7; }
 .btn-asset.re { background: #f59e0b; }
@@ -216,19 +249,14 @@ watch(() => store.projectPath, () => {
   gap: 6px;
   max-height: 300px;
   overflow-y: auto;
+  overflow-x: hidden;
   padding-right: 4px;
+  box-sizing: border-box;
 }
-.asset-list::-webkit-scrollbar {
-  width: 6px;
-}
-.asset-list::-webkit-scrollbar-track {
-  background: rgba(30, 41, 59, 0.4);
-  border-radius: 3px;
-}
-.asset-list::-webkit-scrollbar-thumb {
-  background: #475569;
-  border-radius: 3px;
-}
+.asset-list::-webkit-scrollbar { width: 6px; }
+.asset-list::-webkit-scrollbar-track { background: rgba(30, 41, 59, 0.4); border-radius: 3px; }
+.asset-list::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+
 .asset-item {
   display: flex;
   align-items: center;
@@ -239,6 +267,8 @@ watch(() => store.projectPath, () => {
   font-size: 11px;
   color: #94a3b8;
   position: relative;
+  min-width: 0;
+  box-sizing: border-box;
 }
 .asset-item img {
   width: 32px;
@@ -254,6 +284,7 @@ watch(() => store.projectPath, () => {
   white-space: nowrap;
   font-family: monospace;
   flex: 1;
+  min-width: 0;
 }
 .btn-delete {
   width: 20px;
@@ -267,7 +298,6 @@ watch(() => store.projectPath, () => {
   line-height: 1;
   border-radius: 3px;
   flex-shrink: 0;
-  opacity: 1;
   transition: all 0.15s;
   display: flex;
   align-items: center;
@@ -279,14 +309,9 @@ watch(() => store.projectPath, () => {
   box-shadow: 0 0 8px rgba(239, 68, 68, 0.8);
 }
 
-.side-panel {
-  background: rgba(10, 22, 40, 0.85);
-  border-right: 1px solid rgba(51, 65, 85, 0.3);
-  padding: 16px;
-  overflow-y: auto;
-}
 .panel-section {
   margin-bottom: 24px;
+  min-width: 0;
 }
 .side-panel h3 {
   margin: 0 0 8px 0;
@@ -320,9 +345,7 @@ watch(() => store.projectPath, () => {
   line-height: 1;
   border-radius: 3px;
 }
-.btn-mini:hover {
-  background: #22c55e;
-}
+.btn-mini:hover { background: #22c55e; }
 .day-item {
   display: flex;
   align-items: center;
@@ -335,6 +358,8 @@ watch(() => store.projectPath, () => {
   transition: all 0.2s;
   border-radius: 3px;
   position: relative;
+  min-width: 0;
+  box-sizing: border-box;
 }
 .day-item:hover {
   background: rgba(51, 65, 85, 0.8);
@@ -346,6 +371,7 @@ watch(() => store.projectPath, () => {
 }
 .day-icon {
   font-size: 14px;
+  flex-shrink: 0;
 }
 .day-name {
   flex: 1;
@@ -355,6 +381,7 @@ watch(() => store.projectPath, () => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
 }
 .scene-count {
   font-size: 11px;
@@ -364,5 +391,4 @@ watch(() => store.projectPath, () => {
   border-radius: 10px;
   flex-shrink: 0;
 }
-
 </style>

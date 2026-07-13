@@ -26,12 +26,20 @@ export function GetImageBase64(arg1, arg2) {
   return window['go']['main']['App']['GetImageBase64'](arg1, arg2);
 }
 
+export function GetProjectPath() {
+  return window['go']['main']['App']['GetProjectPath']();
+}
+
 export function GetRecentProjects() {
   return window['go']['main']['App']['GetRecentProjects']();
 }
 
 export function ImportAsset(arg1, arg2, arg3) {
   return window['go']['main']['App']['ImportAsset'](arg1, arg2, arg3);
+}
+
+export function ImportReactionImage() {
+  return window['go']['main']['App']['ImportReactionImage']();
 }
 
 export function ListAssets(arg1) {
@@ -52,6 +60,10 @@ export function SelectFolder() {
 
 export function SelectImageFile() {
   return window['go']['main']['App']['SelectImageFile']();
+}
+
+export function SetProjectPath(arg1) {
+  return window['go']['main']['App']['SetProjectPath'](arg1);
 }
 
 export function WriteJSON(arg1, arg2) {
