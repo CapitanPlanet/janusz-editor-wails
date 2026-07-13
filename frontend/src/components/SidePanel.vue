@@ -190,50 +190,43 @@ watch(() => store.projectPath, () => {
 .asset-buttons {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   margin-bottom: 12px;
 }
 
 .btn-asset {
   width: 100%;
-  height: 32px;
-  background: transparent;
-  border: 1px solid #30363d;
-  color: #7d8590;
+  height: 40px;
+  background: linear-gradient(180deg, #2d3748 0%, #1a202c 100%);
+  border: 1px solid #4a5568;
+  border-top-color: #718096;
+  color: #cbd5e0;
   cursor: pointer;
-  font-size: 11px;
-  font-weight: 600;
-  font-family: 'SF Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
   text-transform: uppercase;
-  border-radius: 2px;
+  letter-spacing: 1px;
+  border-radius: 3px;
   display: grid;
   place-items: center;
   transition: all 0.1s;
   box-sizing: border-box;
+  box-shadow: 0 3px 0 #0f1419, inset 0 1px 0 rgba(255,255,255,0.1);
 }
 
 .btn-asset:hover {
-  background: #161b22;
-  border-color: #00ff94;
-  color: #00ff94;
-  box-shadow: 0 0 8px rgba(0, 255, 148, 0.2);
+  background: linear-gradient(180deg, #4a5568 0%, #2d3748 100%);
+  border-color: #718096;
+  color: #fff;
 }
 
 .btn-asset:active {
-  background: #0d1117;
+  transform: translateY(3px);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
 }
 
-.btn-asset span::before {
-  content: '[ ';
-  color: #30363d;
-}
-.btn-asset span::after {
-  content: ' ]';
-  color: #30363d;
-}
-.btn-asset:hover span::before,
-.btn-asset:hover span::after {
-  color: #00ff94;
+.btn-asset span {
+  text-shadow: 0 -1px 0 rgba(0,0,0,0.8);
 }
 
 .asset-count {
