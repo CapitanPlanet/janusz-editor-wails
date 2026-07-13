@@ -190,50 +190,51 @@ watch(() => store.projectPath, () => {
 .asset-buttons {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-bottom: 8px;
-  width: 100%;
-  box-sizing: border-box;
+  gap: 4px;
+  margin-bottom: 12px;
 }
 
 .btn-asset {
   width: 100%;
-  min-width: 0;
-  max-width: 100%;
-  height: 38px;
-  border: none;
-  color: #fff;
+  height: 32px;
+  background: transparent;
+  border: 1px solid #30363d;
+  color: #7d8590;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
-  transition: all 0.2s;
-  border-radius: 4px;
+  font-family: 'SF Mono', monospace;
+  text-transform: uppercase;
+  border-radius: 2px;
   display: grid;
   place-items: center;
-  line-height: 1;
-  padding: 0;
-  margin: 0;
+  transition: all 0.1s;
   box-sizing: border-box;
-  -webkit-appearance: none;
-  appearance: none;
-  font-family: inherit;
-  overflow: hidden;
 }
 
-.btn-asset span {
-  display: block;
-  pointer-events: none;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.btn-asset:hover {
+  background: #161b22;
+  border-color: #00ff94;
+  color: #00ff94;
+  box-shadow: 0 0 8px rgba(0, 255, 148, 0.2);
 }
 
-.btn-asset.bg { background: #0ea5e9; }
-.btn-asset.bg:hover { background: #0284c7; }
-.btn-asset.re { background: #f59e0b; }
-.btn-asset.re:hover { background: #d97706; }
-.btn-asset.av { background: #8b5cf6; }
-.btn-asset.av:hover { background: #7c3aed; }
+.btn-asset:active {
+  background: #0d1117;
+}
+
+.btn-asset span::before {
+  content: '[ ';
+  color: #30363d;
+}
+.btn-asset span::after {
+  content: ' ]';
+  color: #30363d;
+}
+.btn-asset:hover span::before,
+.btn-asset:hover span::after {
+  color: #00ff94;
+}
 
 .asset-count {
   font-size: 11px;
