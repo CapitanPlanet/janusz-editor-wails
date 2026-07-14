@@ -49,7 +49,7 @@ async function saveProject() {
       Ładowanie projektu...
     </div>
 
-    <!-- DOLNY PANEL - INDUSTRIAL -->
+    <!-- DOLNY PANEL - INDUSTRIAL STALOWY -->
     <div class="bottom-bar">
       <button @click="saveProject" class="btn-footer save">
         <span class="icon">💾</span>
@@ -90,12 +90,16 @@ async function saveProject() {
   --input: #21262D;
   --border: #30363D;
   --border-hover: #484F58;
-  --accent: #00FF94;
+  --accent: #00FF94; /* zostawiamy tylko dla akcji */
   --accent-dim: rgba(0, 255, 148, 0.1);
   --text: #E6EDF3;
   --text-dim: #7D8590;
   --text-dimmer: #484F58;
   --danger: #F85149;
+  /* DODANE - STALOWE ODCIENIE */
+  --steel: #94a3b8;
+  --steel-dim: #64748b;
+  --steel-bright: #cbd5e1;
 }
 
 * {
@@ -185,7 +189,7 @@ body {
   font-size: 14px;
 }
 
-/* INDUSTRIAL BOTTOM BAR */
+/* INDUSTRIAL BOTTOM BAR - STALOWY */
 .bottom-bar {
   position: fixed;
   bottom: 0;
@@ -240,19 +244,22 @@ body {
   filter: drop-shadow(0 -1px 0 rgba(0,0,0,0.8));
 }
 
+/* ZAPISZ - tylko ten zostaje zielony */
 .btn-footer.save:hover {
-  border-color: #22c55e;
-  box-shadow: 0 3px 0 #0f1419, 0 0 12px rgba(34, 197, 94, 0.4);
+  border-color: var(--accent);
+  box-shadow: 0 3px 0 #0f1419, 0 0 12px rgba(0, 255, 148, 0.3);
 }
 
+/* MENU - stalowy zamiast pomarańczowego */
 .btn-footer.menu:hover {
-  border-color: #f59e0b;
-  box-shadow: 0 3px 0 #0f1419, 0 0 12px rgba(245, 158, 11, 0.4);
+  border-color: var(--steel-bright);
+  box-shadow: 0 3px 0 #0f1419, 0 0 12px rgba(203, 213, 225, 0.3);
 }
 
+/* TUTORIAL - stalowy zamiast fioletu */
 .btn-footer.tutorial:hover {
-  border-color: #8b5cf6;
-  box-shadow: 0 3px 0 #0f1419, 0 0 12px rgba(139, 92, 246, 0.4);
+  border-color: var(--steel-bright);
+  box-shadow: 0 3px 0 #0f1419, 0 0 12px rgba(203, 213, 225, 0.3);
 }
 
 .toast-saved {
@@ -293,7 +300,7 @@ body {
 .modal-content {
   background: #0d1117;
   border-radius: 8px;
-  border: 2px solid #16a34a;
+  border: 2px solid var(--steel);
   max-width: 95vw;
   max-height: 95vh;
   overflow: auto;
@@ -332,6 +339,30 @@ body {
   display: block;
 }
 
+/* GLOBALNE OVERRIDE - STALOWY ZAMIAST ZIELONEGO */
+:deep(h3),
+:deep(h4) {
+  color: var(--steel) !important;
+}
+
+:deep(input:focus),
+:deep(textarea:focus),
+:deep(select:focus) {
+  outline: none;
+  border-color: var(--steel-bright) !important;
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.1) !important;
+}
+
+:deep(label) {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+  display: block;
+}
+
 :deep(input),
 :deep(textarea),
 :deep(select) {
@@ -345,31 +376,16 @@ body {
   width: 100%;
 }
 
-:deep(input:focus),
-:deep(textarea:focus),
-:deep(select:focus) {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-dim);
+/* ZIELONY ZOSTAJE TYLKO DLA AKCJI */
+:deep(.btn-add),
+:deep(.btn-mini) {
+  background: var(--accent) !important;
+  color: #0D1117 !important;
 }
 
-:deep(label) {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 6px;
-  display: block;
-}
-
-:deep(h3) {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  margin: 0 0 12px 0;
-  padding: 0 4px;
+:deep(.day-item.active),
+:deep(.scene-item.active) {
+  background: rgba(0, 255, 148, 0.15) !important;
+  border-left-color: var(--accent) !important;
 }
 </style>
