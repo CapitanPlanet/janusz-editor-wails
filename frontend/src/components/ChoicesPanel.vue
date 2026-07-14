@@ -6,13 +6,13 @@ const store = useProjectStore()
 
 const scene = computed(() => store.currentScene)
 const sceneIds = computed(() => store.sceneIdsInCurrentDay)
-const backgrounds = computed(() => store.backgroundAssets) // było: store.assets.images
+const backgrounds = computed(() => store.backgroundAssets)
+const reactions = computed(() => store.reactionAssets) // DODANE
 
 function updateScene(field: string, value: any) {
   store.updateCurrentScene(field, value)
 }
 
-// Migracja starych wyborów bez ID - odpala się raz przy mount
 onMounted(() => {
   if (scene.value?.Choices) {
     scene.value.Choices.forEach((c: any) => {
@@ -34,7 +34,7 @@ function addChoice() {
     Portfel: 0,
     Reputacja: 0,
     ReactionText: '',
-    ReactionImage: '',
+    ReactionImage: '', // Będzie trzymać relPath np. "images/re_robotDevil.webp"
     SoundFile: ''
   })
 }
@@ -86,7 +86,6 @@ function deleteChoice(index: number) {
         <button @click="addChoice" class="btn-add">+ Wybór</button>
       </div>
 
-      <!-- TU JEST KLUCZ - OSOBNY DIV ZE SCROLLEM -->
       <div class="choices-list">
         <div 
           v-for="(choice, idx) in scene.Choices || []" 
@@ -107,6 +106,17 @@ function deleteChoice(index: number) {
             <select v-model="choice.Next">
               <option v-for="id in sceneIds" :key="id" :value="id">
                 {{ id }}
+              </option>
+            </select>
+          </div>
+
+          <!-- DODANE: REAKCJA -->
+          <div class="choice-reaction">
+            <span>Reakcja:</span>
+            <select v-model="choice.ReactionImage">
+              <option value="">— Brak —</option>
+              <option v-for="re in reactions" :key="re" :value="re">
+                {{ re.replace('images/', '') }}
               </option>
             </select>
           </div>
@@ -232,7 +242,6 @@ function deleteChoice(index: number) {
   background: #22c55e; 
 }
 
-/* TO JEST KLUCZOWY DIV ZE SCROLLEM */
 .choices-list {
   display: flex;
   flex-direction: column;
@@ -308,6 +317,39 @@ function deleteChoice(index: number) {
   font-family: monospace;
   box-sizing: border-box;
 }
+
+/* DODANE: STYL DLA REAKCJI */
+.choice-reaction {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #334155;
+}
+.choice-reaction span {
+  font-size: 12px;
+  color: #94a3b8;
+  min-width: 70px;
+  flex-shrink: 0;
+}
+.choice-reaction select {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  background: #0f172a;
+  border: 1px solid #334155;
+  color: #e2e8f0;
+  font-size: 12px;
+  border-radius: 4px;
+  font-family: monospace;
+  box-sizing: border-box;
+}
+.choice-reaction select:focus {
+  outline: none;
+  border-color: #f59e0b;
+}
+
 .stats-title {
   font-size: 10px;
   color: #64748b;
