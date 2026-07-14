@@ -49,10 +49,20 @@ async function saveProject() {
       Ładowanie projektu...
     </div>
 
+    <!-- DOLNY PANEL - INDUSTRIAL -->
     <div class="bottom-bar">
-      <button @click="saveProject" class="btn btn-primary">💾 Zapisz projekt</button>
-      <button @click="emit('go-to-menu')" class="btn btn-secondary">📁 Menu</button>
-      <button @click="showTutorial = true" class="btn btn-help">📖 Pokaż Tutorial</button>
+      <button @click="saveProject" class="btn-footer save">
+        <span class="icon">💾</span>
+        <span>Zapisz projekt</span>
+      </button>
+      <button @click="emit('go-to-menu')" class="btn-footer menu">
+        <span class="icon">📁</span>
+        <span>Menu</span>
+      </button>
+      <button @click="showTutorial = true" class="btn-footer tutorial">
+        <span class="icon">📖</span>
+        <span>Pokaż Tutorial</span>
+      </button>
     </div>
 
     <transition name="toast">
@@ -112,14 +122,14 @@ body {
 
 .main-grid {
   display: grid;
-  grid-template-columns: 280px 280px minmax(400px, 1fr) 380px; /* POPRAWIONE: 220px -> 280px */
+  grid-template-columns: 280px 280px minmax(400px, 1fr) 380px;
   gap: 12px;
   padding: 12px;
   flex: 1;
   overflow: hidden;
   min-height: 0;
   padding-bottom: 72px;
-  min-width: 1376px; /* POPRAWIONE: 1316px -> 1376px */
+  min-width: 1376px;
 }
 
 .top-bar {
@@ -154,12 +164,12 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  min-width: 0; /* DODANE */
+  min-width: 0;
 }
 
 .panel > * {
   min-height: 0;
-  min-width: 0; /* DODANE */
+  min-width: 0;
 }
 
 .panel-preview {
@@ -175,68 +185,74 @@ body {
   font-size: 14px;
 }
 
+/* INDUSTRIAL BOTTOM BAR */
 .bottom-bar {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  background: var(--panel);
-  border-top: 1px solid var(--border);
-  padding: 12px 20px;
+  height: 56px;
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  border-top: 2px solid #0f1419;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 -4px 12px rgba(0,0,0,0.5);
   display: flex;
-  justify-content: flex-start;
-  gap: 8px;
-  z-index: 100;
-  backdrop-filter: blur(12px);
-}
-
-.btn {
-  border: none;
-  padding: 8px 16px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  border-radius: 6px;
-  transition: all 0.15s ease;
-  display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 12px;
+  padding: 0 20px;
+  flex-shrink: 0;
+  z-index: 100;
 }
 
-.btn-primary {
-  background: var(--accent);
-  color: #0D1117;
+.btn-footer {
+  height: 40px;
+  padding: 0 20px;
+  background: linear-gradient(180deg, #2d3748 0%, #1a202c 100%);
+  border: 1px solid #4a5568;
+  border-top-color: #718096;
+  color: #cbd5e0;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.1s;
+  box-shadow: 0 3px 0 #0f1419, inset 0 1px 0 rgba(255,255,255,0.1);
+  text-shadow: 0 -1px 0 rgba(0,0,0,0.8);
 }
 
-.btn-primary:hover {
-  filter: brightness(1.1);
-  transform: translateY(-1px);
-}
-
-.btn-secondary {
-  background: var(--card);
-  color: var(--text);
-  border: 1px solid var(--border);
-}
-
-.btn-secondary:hover {
-  background: var(--input);
-  border-color: var(--border-hover);
-}
-
-.btn-help {
-  background: #7c3aed;
+.btn-footer:hover {
+  background: linear-gradient(180deg, #4a5568 0%, #2d3748 100%);
+  border-color: #718096;
   color: #fff;
-  border: 1px solid #8b5cf6;
 }
 
-.btn-help:hover {
-  background: #8b5cf6;
-  transform: translateY(-1px);
+.btn-footer:active {
+  transform: translateY(3px);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
 }
 
-.btn:active {
-  transform: translateY(0);
+.btn-footer .icon {
+  font-size: 16px;
+  filter: drop-shadow(0 -1px 0 rgba(0,0,0,0.8));
+}
+
+.btn-footer.save:hover {
+  border-color: #22c55e;
+  box-shadow: 0 3px 0 #0f1419, 0 0 12px rgba(34, 197, 94, 0.4);
+}
+
+.btn-footer.menu:hover {
+  border-color: #f59e0b;
+  box-shadow: 0 3px 0 #0f1419, 0 0 12px rgba(245, 158, 11, 0.4);
+}
+
+.btn-footer.tutorial:hover {
+  border-color: #8b5cf6;
+  box-shadow: 0 3px 0 #0f1419, 0 0 12px rgba(139, 92, 246, 0.4);
 }
 
 .toast-saved {
