@@ -1,22 +1,32 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useProjectStore } from '../stores/projectStore'
-import { SelectImageFile, ImportAsset, ListAssets, GetImageBase64, DeleteAsset, DeleteDay } from '../../wailsjs/go/main/App'
+import { SelectImageFile, ImportAsset, GetImageBase64, DeleteAsset, DeleteDay } from '../../wailsjs/go/main/App'
 
 const store = useProjectStore()
-const assets = ref([])
 const assetCache = ref({})
+
+// DODANE: sekcje zwinięte/rozwinięte
+const sectionsOpen = ref({
+  bg: true,
+  re: true,
+  av: true
+})
+
+// DODANE: 3 osobne listy zamiast jednej
+const backgroundAssets = computed(() => store.backgroundAssets)
+const reactionAssets = computed(() => store.reactionAssets)
+const avatarAssets = computed(() => store.avatarAssets)
 
 async function refreshAssets() {
   if (!store.projectPath) {
-    assets.value = []
     assetCache.value = {}
     return
   }
   try {
-    const list = await ListAssets(store.projectPath)
-    assets.value = list || []
-    for (const asset of assets.value) {
+    await store.loadAssets()
+    const allAssets = store.assets.all
+    for (const asset of allAssets) {
       if (!assetCache.value[asset]) {
         const b64 = await GetImageBase64(store.projectPath, asset)
         assetCache.value[asset] = b64
@@ -24,7 +34,6 @@ async function refreshAssets() {
     }
   } catch (e) {
     console.warn('[SIDEPANEL] Błąd ładowania assetów:', e)
-    assets.value = []
   }
 }
 
@@ -40,9 +49,8 @@ async function importAsset(type) {
   const filePath = await SelectImageFile()
   if (!filePath) return
   try {
-    const relPath = await ImportAsset(filePath, store.projectPath, type)
+    await ImportAsset(filePath, store.projectPath, type)
     await refreshAssets()
-    await store.loadAssets()
   } catch (e) {
     console.error('[SIDEPANEL] Błąd importu:', e)
     alert(`Błąd importu: ${e}`)
@@ -56,11 +64,14 @@ async function deleteAsset(asset) {
     await DeleteAsset(store.projectPath, asset)
     delete assetCache.value[asset]
     await refreshAssets()
-    await store.loadAssets()
   } catch (e) {
     console.error('[SIDEPANEL] Błąd usuwania:', e)
     alert(`Błąd usuwania: ${e}`)
   }
+}
+
+function toggleSection(type) {
+  sectionsOpen.value[type] =!sectionsOpen.value[type]
 }
 
 function selectDay(day) {
@@ -132,19 +143,78 @@ watch(() => store.projectPath, () => {
         </button>
       </div>
       <div class="asset-count">
-        Zaimportowano: {{ assets.length }} plików
+        Łącznie: {{ store.assets.all.length }} plików
       </div>
 
-      <div v-if="assets.length" class="asset-list">
-        <div 
-          v-for="asset in assets" 
-          :key="asset" 
-          class="asset-item"
-          :title="asset"
-        >
-          <img :src="getAssetUrl(asset)" :alt="asset" />
-          <span>{{ asset.replace('images/', '') }}</span>
-          <button @click.stop="deleteAsset(asset)" class="btn-delete" title="Usuń">✕</button>
+      <!-- SEKCJA: TŁA -->
+      <div class="asset-category">
+        <div class="category-header" @click="toggleSection('bg')">
+          <span class="category-toggle">{{ sectionsOpen.bg? '▼' : '▶' }}</span>
+          <span class="category-title">TŁA</span>
+          <span class="category-count">[{{ backgroundAssets.length }}]</span>
+        </div>
+        <div v-if="sectionsOpen.bg && backgroundAssets.length" class="asset-list">
+          <div 
+            v-for="asset in backgroundAssets" 
+            :key="asset" 
+            class="asset-item"
+            :title="asset"
+          >
+            <img :src="getAssetUrl(asset)" :alt="asset" />
+            <span>{{ asset.replace('images/bg_', '') }}</span>
+            <button @click.stop="deleteAsset(asset)" class="btn-delete" title="Usuń">✕</button>
+          </div>
+        </div>
+        <div v-else-if="sectionsOpen.bg" class="asset-empty">
+          Brak teł. Kliknij + TŁO
+        </div>
+      </div>
+
+      <!-- SEKCJA: REAKCJE -->
+      <div class="asset-category">
+        <div class="category-header" @click="toggleSection('re')">
+          <span class="category-toggle">{{ sectionsOpen.re? '▼' : '▶' }}</span>
+          <span class="category-title">REAKCJE</span>
+          <span class="category-count">[{{ reactionAssets.length }}]</span>
+        </div>
+        <div v-if="sectionsOpen.re && reactionAssets.length" class="asset-list">
+          <div 
+            v-for="asset in reactionAssets" 
+            :key="asset" 
+            class="asset-item"
+            :title="asset"
+          >
+            <img :src="getAssetUrl(asset)" :alt="asset" />
+            <span>{{ asset.replace('images/re_', '') }}</span>
+            <button @click.stop="deleteAsset(asset)" class="btn-delete" title="Usuń">✕</button>
+          </div>
+        </div>
+        <div v-else-if="sectionsOpen.re" class="asset-empty">
+          Brak reakcji. Kliknij + REAKCJA
+        </div>
+      </div>
+
+      <!-- SEKCJA: AVATARY -->
+      <div class="asset-category">
+        <div class="category-header" @click="toggleSection('av')">
+          <span class="category-toggle">{{ sectionsOpen.av? '▼' : '▶' }}</span>
+          <span class="category-title">AVATARY</span>
+          <span class="category-count">[{{ avatarAssets.length }}]</span>
+        </div>
+        <div v-if="sectionsOpen.av && avatarAssets.length" class="asset-list">
+          <div 
+            v-for="asset in avatarAssets" 
+            :key="asset" 
+            class="asset-item"
+            :title="asset"
+          >
+            <img :src="getAssetUrl(asset)" :alt="asset" />
+            <span>{{ asset.replace('images/av_', '') }}</span>
+            <button @click.stop="deleteAsset(asset)" class="btn-delete" title="Usuń">✕</button>
+          </div>
+        </div>
+        <div v-else-if="sectionsOpen.av" class="asset-empty">
+          Brak avatarów. Kliknij + AVATAR
         </div>
       </div>
     </div>
@@ -233,15 +303,61 @@ watch(() => store.projectPath, () => {
   font-size: 11px;
   color: #64748b;
   text-align: center;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #1e293b;
+}
+
+/* NOWE: KATEGORIE ASSETÓW */
+.asset-category {
+  margin-bottom: 16px;
+}
+
+.category-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid #334155;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s;
+}
+
+.category-header:hover {
+  background: rgba(51, 65, 85, 0.8);
+  border-color: #4ade80;
+}
+
+.category-toggle {
+  font-size: 10px;
+  color: #64748b;
+  width: 12px;
+}
+
+.category-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #4ade80;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  flex: 1;
+}
+
+.category-count {
+  font-size: 11px;
+  color: #94a3b8;
+  font-family: monospace;
 }
 
 .asset-list {
-  margin-top: 12px;
+  margin-top: 6px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  max-height: 300px;
+  gap: 4px;
+  max-height: 200px;
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 4px;
@@ -280,6 +396,15 @@ watch(() => store.projectPath, () => {
   flex: 1;
   min-width: 0;
 }
+
+.asset-empty {
+  padding: 12px;
+  text-align: center;
+  font-size: 11px;
+  color: #475569;
+  font-style: italic;
+}
+
 .btn-delete {
   width: 20px;
   height: 20px;
