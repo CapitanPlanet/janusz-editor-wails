@@ -207,16 +207,15 @@ watch(choices, async (newChoices) => {
   transform: translateY(-50%) scale(0.9);
 }
 
-/* WYBORY - JAK W GRZE */
 .preview-choices {
   position: relative;
   z-index: 2;
   background: rgba(0,0,0,0.85);
   border-top: 1px solid #1e293b;
   padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
   max-height: 40%;
   overflow-y: auto;
 }
@@ -224,6 +223,11 @@ watch(choices, async (newChoices) => {
 .preview-choices::-webkit-scrollbar { width: 6px; }
 .preview-choices::-webkit-scrollbar-track { background: rgba(30, 41, 59, 0.4); }
 .preview-choices::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+
+/* jak jest nieparzysta liczba to ostatni na całą szerokość */
+.choice-btn:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
 
 .choice-btn {
   display: flex;
