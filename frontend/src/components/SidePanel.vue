@@ -5,10 +5,11 @@ import { SelectImageFile, ImportAsset, GetImageBase64, DeleteAsset } from '../..
 
 const store = useProjectStore()
 const assetCache = ref<Record<string,string>>({})
-const sectionsOpen = ref({ bg: true, re: true })
+const sectionsOpen = ref({ bg: true, re: true, av: true })
 
 const backgroundAssets = computed(() => store.backgroundAssets)
 const reactionAssets = computed(() => store.reactionAssets)
+const avatarAssets = computed(() => store.avatarAssets)
 
 async function refreshAssets() {
   if (!store.projectPath) return
@@ -23,19 +24,20 @@ async function refreshAssets() {
 }
 const getAssetUrl = (p: string) => assetCache.value[p] || ''
 
-async function importAsset(type: 'bg' | 're') {
+async function importAsset(type: 'bg' | 're' | 'av') {
   const filePath = await SelectImageFile()
   if (!filePath ||!store.projectPath) return
   await ImportAsset(filePath, store.projectPath, type)
+  await new Promise(r => setTimeout(r, 150))
   await refreshAssets()
 }
 async function deleteAsset(asset: string) {
-  if (!confirm(`Usunąć ${asset.replace('images/', '')}?`)) return
+  if (!confirm(`Usunąć ${asset.replace('images/', '').replace('images\\','')}?`)) return
   await DeleteAsset(store.projectPath!, asset)
   delete assetCache.value[asset]
   await refreshAssets()
 }
-function toggleSection(t: 'bg'|'re') { sectionsOpen.value[t] =!sectionsOpen.value[t] }
+function toggleSection(t: 'bg'|'re'|'av') { sectionsOpen.value[t] =!sectionsOpen.value[t] }
 function selectDay(day: string) {
   store.currentDay = day
   store.currentSceneId = store.days[day]?.[0]?.Id || null
@@ -60,14 +62,15 @@ watch(() => store.projectPath, refreshAssets)
       </button>
     </div>
 
-    <!-- 2. ASSETY TYLKO SCENY -->
+    <!-- 2. ASSETY -->
     <div class="panel-section">
-      <div class="section-header"><h4>ASSETY SCENY</h4></div>
+      <div class="section-header"><h4>ASSETY</h4></div>
       <div class="asset-buttons">
         <button @click="importAsset('bg')" class="btn-asset bg">+ Tło</button>
         <button @click="importAsset('re')" class="btn-asset re">+ Reakcja</button>
+        <button @click="importAsset('av')" class="btn-asset av">+ Avatar</button>
       </div>
-      <div class="asset-count">Łącznie: {{ backgroundAssets.length + reactionAssets.length }} plików</div>
+      <div class="asset-count">Łącznie: {{ backgroundAssets.length + reactionAssets.length + avatarAssets.length }} plików</div>
 
       <div class="asset-category">
         <div class="category-header" @click="toggleSection('bg')">
@@ -78,7 +81,7 @@ watch(() => store.projectPath, refreshAssets)
         <div v-if="sectionsOpen.bg" class="asset-list">
           <div v-for="a in backgroundAssets" :key="a" class="asset-item">
             <img :src="getAssetUrl(a)" loading="lazy" />
-            <span class="name">{{ a.replace('images/bg_', '') }}</span>
+            <span class="name">{{ a.replace('images/bg_','').replace('images\\bg_','') }}</span>
             <button @click.stop="deleteAsset(a)" class="btn-del">✕</button>
           </div>
           <div v-if="!backgroundAssets.length" class="empty">Brak teł</div>
@@ -94,10 +97,26 @@ watch(() => store.projectPath, refreshAssets)
         <div v-if="sectionsOpen.re" class="asset-list">
           <div v-for="a in reactionAssets" :key="a" class="asset-item">
             <img :src="getAssetUrl(a)" loading="lazy" />
-            <span class="name">{{ a.replace('images/re_', '') }}</span>
+            <span class="name">{{ a.replace('images/re_','').replace('images\\re_','') }}</span>
             <button @click.stop="deleteAsset(a)" class="btn-del">✕</button>
           </div>
           <div v-if="!reactionAssets.length" class="empty">Brak reakcji</div>
+        </div>
+      </div>
+
+      <div class="asset-category">
+        <div class="category-header" @click="toggleSection('av')">
+          <span class="arrow">{{ sectionsOpen.av? '▼' : '▶' }}</span>
+          <span>AVATARY</span>
+          <span class="count">[{{ avatarAssets.length }}]</span>
+        </div>
+        <div v-if="sectionsOpen.av" class="asset-list av-list">
+          <div v-for="a in avatarAssets" :key="a" class="asset-item">
+            <img :src="getAssetUrl(a)" loading="lazy" />
+            <span class="name">{{ a.replace('images/av_','').replace('images\\av_','') }}</span>
+            <button @click.stop="deleteAsset(a)" class="btn-del">✕</button>
+          </div>
+          <div v-if="!avatarAssets.length" class="empty">Brak avatarów</div>
         </div>
       </div>
     </div>
@@ -136,17 +155,19 @@ watch(() => store.projectPath, refreshAssets)
 .btn-janusz.text { display: flex; flex-direction: column; }
 .btn-janusz small { font-size: 10px; color: #7D8590; }
 .section-header h4 { margin: 0; font-size: 11px; color: #00FF94; letter-spacing: 1px; }
-.asset-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.asset-buttons { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
 .btn-asset { height: 34px; background: #21262D; border: 1px solid #30363D; color: #cbd5e1; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer; }
 .btn-asset:hover { border-color: #484F58; color: white; }
+.btn-asset.av { border-color: rgba(0,255,148,0.3); }
 .asset-count { font-size: 10px; color: #484F58; text-align: center; }
 .asset-category { margin-top: 8px; }
 .category-header { display: flex; gap: 6px; align-items: center; padding: 6px 8px; background: #161B22; border: 1px solid #21262D; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 700; color: #E6EDF3; }
-.category-header.count { margin-left: auto; color: #7D8590; font-weight: 400; }
-.asset-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; max-height: 180px; overflow-y: auto; }
+.count { margin-left: auto; color: #7D8590; font-weight: 400; }
+.asset-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; max-height: 140px; overflow-y: auto; }
+.asset-list.av-list { max-height: 200px; }
 .asset-item { display: flex; align-items: center; gap: 6px; background: #161B22; border-radius: 4px; padding: 4px; }
 .asset-item img { width: 28px; height: 28px; object-fit: cover; border-radius: 3px; }
-.asset-item.name { flex: 1; font-size: 11px; font-family: monospace; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.asset-item.name { flex: 1; font-size: 10px; font-family: monospace; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .btn-del { width: 18px; height: 18px; background: #dc2626; color: white; border: 0; border-radius: 3px; cursor: pointer; font-size: 10px; }
 .empty { font-size: 11px; color: #484F58; font-style: italic; padding: 8px; text-align: center; }
 .day-item { display: flex; justify-content: space-between; padding: 6px 8px; background: #161B22; border-radius: 4px; font-size: 12px; cursor: pointer; border-left: 2px solid transparent; }
