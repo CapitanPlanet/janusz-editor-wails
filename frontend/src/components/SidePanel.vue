@@ -1,240 +1,113 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useProjectStore } from '../stores/projectStore'
-import { SelectImageFile, ImportAsset, GetImageBase64, DeleteAsset, DeleteDay } from '../../wailsjs/go/main/App'
+import { SelectImageFile, ImportAsset, GetImageBase64, DeleteAsset } from '../../wailsjs/go/main/App'
 
 const store = useProjectStore()
-const assetCache = ref({})
+const assetCache = ref<Record<string,string>>({})
+const sectionsOpen = ref({ bg: true, re: true })
 
-// DODANE: sekcje zwinięte/rozwinięte
-const sectionsOpen = ref({
-  bg: true,
-  re: true,
-  av: true
-})
-
-// DODANE: 3 osobne listy zamiast jednej
 const backgroundAssets = computed(() => store.backgroundAssets)
 const reactionAssets = computed(() => store.reactionAssets)
-const avatarAssets = computed(() => store.avatarAssets)
 
 async function refreshAssets() {
-  if (!store.projectPath) {
-    assetCache.value = {}
-    return
-  }
-  try {
-    await store.loadAssets()
-    const allAssets = store.assets.all
-    for (const asset of allAssets) {
-      if (!assetCache.value[asset]) {
-        const b64 = await GetImageBase64(store.projectPath, asset)
-        assetCache.value[asset] = b64
-      }
-    }
-  } catch (e) {
-    console.warn('[SIDEPANEL] Błąd ładowania assetów:', e)
-  }
-}
-
-function getAssetUrl(relPath) {
-  return assetCache.value[relPath] || ''
-}
-
-async function importAsset(type) {
-  if (!store.projectPath) {
-    alert('Najpierw otwórz lub stwórz projekt')
-    return
-  }
-  const filePath = await SelectImageFile()
-  if (!filePath) return
-  try {
-    await ImportAsset(filePath, store.projectPath, type)
-    await refreshAssets()
-  } catch (e) {
-    console.error('[SIDEPANEL] Błąd importu:', e)
-    alert(`Błąd importu: ${e}`)
-  }
-}
-
-async function deleteAsset(asset) {
   if (!store.projectPath) return
-  if (!confirm(`Na pewno usunąć ${asset.replace('images/', '')}?`)) return
-  try {
-    await DeleteAsset(store.projectPath, asset)
-    delete assetCache.value[asset]
-    await refreshAssets()
-  } catch (e) {
-    console.error('[SIDEPANEL] Błąd usuwania:', e)
-    alert(`Błąd usuwania: ${e}`)
+  await store.loadAssets()
+  for (const asset of store.assets.all) {
+    if (!assetCache.value[asset]) {
+      try {
+        assetCache.value[asset] = await GetImageBase64(store.projectPath, asset)
+      } catch {}
+    }
   }
 }
+const getAssetUrl = (p: string) => assetCache.value[p] || ''
 
-function toggleSection(type) {
-  sectionsOpen.value[type] =!sectionsOpen.value[type]
+async function importAsset(type: 'bg' | 're') {
+  const filePath = await SelectImageFile()
+  if (!filePath ||!store.projectPath) return
+  await ImportAsset(filePath, store.projectPath, type)
+  await refreshAssets()
 }
-
-function selectDay(day) {
+async function deleteAsset(asset: string) {
+  if (!confirm(`Usunąć ${asset.replace('images/', '')}?`)) return
+  await DeleteAsset(store.projectPath!, asset)
+  delete assetCache.value[asset]
+  await refreshAssets()
+}
+function toggleSection(t: 'bg'|'re') { sectionsOpen.value[t] =!sectionsOpen.value[t] }
+function selectDay(day: string) {
   store.currentDay = day
   store.currentSceneId = store.days[day]?.[0]?.Id || null
 }
 
-function addDay() {
-  const dayName = prompt('Nazwa nowego dnia:', `day${Object.keys(store.days).length + 1}`)
-  if (!dayName) return
-  if (store.days[dayName]) {
-    alert('Dzień o tej nazwie już istnieje')
-    return
-  }
-  store.addDay(dayName)
-}
-
-async function deleteDay(day) {
-  if (!store.projectPath) return
-  if (Object.keys(store.days).length <= 1) {
-    alert('Nie możesz usunąć ostatniego dnia!')
-    return
-  }
-  if (!confirm(`Na pewno usunąć dzień "${day}"?\nWszystkie sceny w tym dniu przepadną na zawsze!`)) return
-  try {
-    await DeleteDay(store.projectPath, day)
-    delete store.days[day]
-    if (store.currentDay === day) {
-      const firstDay = Object.keys(store.days)[0] || null
-      store.currentDay = firstDay
-      store.currentSceneId = firstDay? store.days[firstDay]?.[0]?.Id : null
-    }
-    await store.loadProjectFromPath(store.projectPath)
-  } catch (e) {
-    console.error('[SIDEPANEL] Błąd usuwania dnia:', e)
-    alert(`Błąd usuwania dnia: ${e}`)
-  }
-}
-
-onMounted(() => {
-  refreshAssets()
-})
-
-watch(() => store.projectPath, () => {
-  refreshAssets()
-})
+onMounted(refreshAssets)
+watch(() => store.projectPath, refreshAssets)
 </script>
 
 <template>
   <aside v-if="store.meta" class="side-panel">
-    <div class="panel-section">
-      <h3>PROJEKT JANUSZA</h3>
-      <div class="project-name">{{ store.meta?.gameName || 'Brak' }}</div>
+    <!-- 1. GLOBALNY JANUSZ -->
+    <div class="panel-section highlight">
+      <div class="label">PROJEKT JANUSZA</div>
+      <div class="project-name" :title="store.meta.gameName">{{ store.meta.gameName }}</div>
+      <button @click="store.ui.showAvatarEditor = true" class="btn-janusz">
+        <span class="icon">🧠</span>
+        <span class="text">
+          <b>KONFIGURUJ JANUSZA</b>
+          <small>{{ store.avatarSystem.rules.length }} reguł • {{ store.avatarAssets.length }} avatarów</small>
+        </span>
+      </button>
     </div>
 
+    <!-- 2. ASSETY TYLKO SCENY -->
     <div class="panel-section">
-      <div class="section-header">
-        <h4>ASSETY</h4>
-      </div>
+      <div class="section-header"><h4>ASSETY SCENY</h4></div>
       <div class="asset-buttons">
-        <button @click="importAsset('bg')" class="btn-asset bg">
-          <span>+ Tło</span>
-        </button>
-        <button @click="importAsset('re')" class="btn-asset re">
-          <span>+ Reakcja</span>
-        </button>
-        <button @click="importAsset('av')" class="btn-asset av">
-          <span>+ Avatar</span>
-        </button>
+        <button @click="importAsset('bg')" class="btn-asset bg">+ Tło</button>
+        <button @click="importAsset('re')" class="btn-asset re">+ Reakcja</button>
       </div>
-      <div class="asset-count">
-        Łącznie: {{ store.assets.all.length }} plików
-      </div>
+      <div class="asset-count">Łącznie: {{ backgroundAssets.length + reactionAssets.length }} plików</div>
 
-      <!-- SEKCJA: TŁA -->
       <div class="asset-category">
         <div class="category-header" @click="toggleSection('bg')">
-          <span class="category-toggle">{{ sectionsOpen.bg? '▼' : '▶' }}</span>
-          <span class="category-title">TŁA</span>
-          <span class="category-count">[{{ backgroundAssets.length }}]</span>
+          <span class="arrow">{{ sectionsOpen.bg? '▼' : '▶' }}</span>
+          <span>TŁA</span>
+          <span class="count">[{{ backgroundAssets.length }}]</span>
         </div>
-        <div v-if="sectionsOpen.bg && backgroundAssets.length" class="asset-list">
-          <div 
-            v-for="asset in backgroundAssets" 
-            :key="asset" 
-            class="asset-item"
-            :title="asset"
-          >
-            <img :src="getAssetUrl(asset)" :alt="asset" />
-            <span>{{ asset.replace('images/bg_', '') }}</span>
-            <button @click.stop="deleteAsset(asset)" class="btn-delete" title="Usuń">✕</button>
+        <div v-if="sectionsOpen.bg" class="asset-list">
+          <div v-for="a in backgroundAssets" :key="a" class="asset-item">
+            <img :src="getAssetUrl(a)" loading="lazy" />
+            <span class="name">{{ a.replace('images/bg_', '') }}</span>
+            <button @click.stop="deleteAsset(a)" class="btn-del">✕</button>
           </div>
-        </div>
-        <div v-else-if="sectionsOpen.bg" class="asset-empty">
-          Brak teł. Kliknij + TŁO
+          <div v-if="!backgroundAssets.length" class="empty">Brak teł</div>
         </div>
       </div>
 
-      <!-- SEKCJA: REAKCJE -->
       <div class="asset-category">
         <div class="category-header" @click="toggleSection('re')">
-          <span class="category-toggle">{{ sectionsOpen.re? '▼' : '▶' }}</span>
-          <span class="category-title">REAKCJE</span>
-          <span class="category-count">[{{ reactionAssets.length }}]</span>
+          <span class="arrow">{{ sectionsOpen.re? '▼' : '▶' }}</span>
+          <span>REAKCJE</span>
+          <span class="count">[{{ reactionAssets.length }}]</span>
         </div>
-        <div v-if="sectionsOpen.re && reactionAssets.length" class="asset-list">
-          <div 
-            v-for="asset in reactionAssets" 
-            :key="asset" 
-            class="asset-item"
-            :title="asset"
-          >
-            <img :src="getAssetUrl(asset)" :alt="asset" />
-            <span>{{ asset.replace('images/re_', '') }}</span>
-            <button @click.stop="deleteAsset(asset)" class="btn-delete" title="Usuń">✕</button>
+        <div v-if="sectionsOpen.re" class="asset-list">
+          <div v-for="a in reactionAssets" :key="a" class="asset-item">
+            <img :src="getAssetUrl(a)" loading="lazy" />
+            <span class="name">{{ a.replace('images/re_', '') }}</span>
+            <button @click.stop="deleteAsset(a)" class="btn-del">✕</button>
           </div>
-        </div>
-        <div v-else-if="sectionsOpen.re" class="asset-empty">
-          Brak reakcji. Kliknij + REAKCJA
-        </div>
-      </div>
-
-      <!-- SEKCJA: AVATARY -->
-      <div class="asset-category">
-        <div class="category-header" @click="toggleSection('av')">
-          <span class="category-toggle">{{ sectionsOpen.av? '▼' : '▶' }}</span>
-          <span class="category-title">AVATARY</span>
-          <span class="category-count">[{{ avatarAssets.length }}]</span>
-        </div>
-        <div v-if="sectionsOpen.av && avatarAssets.length" class="asset-list">
-          <div 
-            v-for="asset in avatarAssets" 
-            :key="asset" 
-            class="asset-item"
-            :title="asset"
-          >
-            <img :src="getAssetUrl(asset)" :alt="asset" />
-            <span>{{ asset.replace('images/av_', '') }}</span>
-            <button @click.stop="deleteAsset(asset)" class="btn-delete" title="Usuń">✕</button>
-          </div>
-        </div>
-        <div v-else-if="sectionsOpen.av" class="asset-empty">
-          Brak avatarów. Kliknij + AVATAR
+          <div v-if="!reactionAssets.length" class="empty">Brak reakcji</div>
         </div>
       </div>
     </div>
 
+    <!-- 3. DNI -->
     <div class="panel-section">
-      <div class="section-header">
-        <h4>DNI [{{ store.dayFileList.length }}]</h4>
-        <button @click="addDay" class="btn-mini">+</button>
-      </div>
-      
-      <div
-        v-for="day in store.dayFileList"
-        :key="day"
-        :class="['day-item', { active: day === store.currentDay }]"
-        @click="selectDay(day)"
-      >
-        <span class="day-icon">📁</span>
-        <span class="day-name">{{ day }}</span>
-        <span class="scene-count">{{ store.days[day]?.length || 0 }}</span>
-        <button @click.stop="deleteDay(day)" class="btn-delete" title="Usuń dzień">✕</button>
+      <div class="section-header"><h4>DNI [{{ store.dayFileList.length }}]</h4></div>
+      <div v-for="day in store.dayFileList" :key="day" :class="['day-item', { active: day === store.currentDay }]" @click="selectDay(day)">
+        <span>📁 {{ day }}</span>
+        <span class="badge">{{ store.days[day]?.length || 0 }}</span>
       </div>
     </div>
   </aside>
@@ -242,272 +115,42 @@ watch(() => store.projectPath, () => {
 
 <style scoped>
 .side-panel {
-  background: rgba(10, 22, 40, 0.85);
-  border-right: 1px solid rgba(51, 65, 85, 0.3);
-  padding: 16px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  width: 280px;
-  min-width: 280px;
-  max-width: 280px;
-  flex-shrink: 0;
-  flex-grow: 0;
-  height: 100%;
-  box-sizing: border-box;
-  display: block;
+  width: 280px; min-width: 280px; height: 100%;
+  background: #0D1117; border-right: 1px solid #21262D;
+  display: flex; flex-direction: column; gap: 16px;
+  padding: 12px; overflow-y: auto; box-sizing: border-box;
 }
-
-.asset-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 12px;
+.panel-section { display: flex; flex-direction: column; gap: 8px; }
+.panel-section.highlight {
+  background: rgba(0,255,148,0.06); border: 1px solid rgba(0,255,148,0.25);
+  border-radius: 8px; padding: 10px;
 }
-
-.btn-asset {
-  width: 100%;
-  height: 40px;
-  background: linear-gradient(180deg, #2d3748 0%, #1a202c 100%);
-  border: 1px solid #4a5568;
-  border-top-color: #718096;
-  color: #cbd5e0;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  border-radius: 3px;
-  display: grid;
-  place-items: center;
-  transition: all 0.1s;
-  box-sizing: border-box;
-  box-shadow: 0 3px 0 #0f1419, inset 0 1px 0 rgba(255,255,255,0.1);
+.label { font-size: 10px; font-weight: 700; letter-spacing: 1px; color: #7D8590; }
+.project-name { font-size: 12px; font-family: monospace; color: #E6EDF3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.btn-janusz {
+  margin-top: 6px; width: 100%; display: flex; gap: 10px; align-items: center;
+  background: #161B22; border: 1px solid #00FF94; border-radius: 6px; padding: 10px;
+  color: #E6EDF3; cursor: pointer; text-align: left;
 }
-
-.btn-asset:hover {
-  background: linear-gradient(180deg, #4a5568 0%, #2d3748 100%);
-  border-color: #718096;
-  color: #fff;
-}
-
-.btn-asset:active {
-  transform: translateY(3px);
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
-}
-
-.btn-asset span {
-  text-shadow: 0 -1px 0 rgba(0,0,0,0.8);
-}
-
-.asset-count {
-  font-size: 11px;
-  color: #64748b;
-  text-align: center;
-  margin-bottom: 12px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #1e293b;
-}
-
-/* NOWE: KATEGORIE ASSETÓW */
-.asset-category {
-  margin-bottom: 16px;
-}
-
-.category-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
-  background: rgba(30, 41, 59, 0.8);
-  border: 1px solid #334155;
-  border-radius: 4px;
-  cursor: pointer;
-  user-select: none;
-  transition: all 0.15s;
-}
-
-.category-header:hover {
-  background: rgba(51, 65, 85, 0.8);
-  border-color: #4ade80;
-}
-
-.category-toggle {
-  font-size: 10px;
-  color: #64748b;
-  width: 12px;
-}
-
-.category-title {
-  font-size: 11px;
-  font-weight: 700;
-  color: #4ade80;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  flex: 1;
-}
-
-.category-count {
-  font-size: 11px;
-  color: #94a3b8;
-  font-family: monospace;
-}
-
-.asset-list {
-  margin-top: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  max-height: 200px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-right: 4px;
-  box-sizing: border-box;
-}
-.asset-list::-webkit-scrollbar { width: 6px; }
-.asset-list::-webkit-scrollbar-track { background: rgba(30, 41, 59, 0.4); border-radius: 3px; }
-.asset-list::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
-
-.asset-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px;
-  background: rgba(30, 41, 59, 0.6);
-  border-radius: 4px;
-  font-size: 11px;
-  color: #94a3b8;
-  position: relative;
-  min-width: 0;
-  box-sizing: border-box;
-}
-.asset-item img {
-  width: 32px;
-  height: 32px;
-  object-fit: cover;
-  border-radius: 3px;
-  flex-shrink: 0;
-  border: 1px solid #334155;
-}
-.asset-item span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: monospace;
-  flex: 1;
-  min-width: 0;
-}
-
-.asset-empty {
-  padding: 12px;
-  text-align: center;
-  font-size: 11px;
-  color: #475569;
-  font-style: italic;
-}
-
-.btn-delete {
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  background: #dc2626;
-  border: 1px solid #ef4444;
-  color: #fff;
-  cursor: pointer;
-  font-size: 14px;
-  line-height: 1;
-  border-radius: 3px;
-  flex-shrink: 0;
-  transition: all 0.15s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.btn-delete:hover {
-  background: #ef4444;
-  transform: scale(1.2);
-  box-shadow: 0 0 8px rgba(239, 68, 68, 0.8);
-}
-
-.panel-section {
-  margin-bottom: 24px;
-  min-width: 0;
-}
-.side-panel h3 {
-  margin: 0 0 8px 0;
-  color: #4ade80;
-  font-size: 14px;
-}
-.project-name {
-  font-size: 12px;
-  color: #94a3b8;
-  font-family: monospace;
-  word-break: break-all;
-}
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-.section-header h4 {
-  margin: 0;
-  color: #4ade80;
-  font-size: 13px;
-}
-.btn-mini {
-  padding: 2px 8px;
-  background: #16a34a;
-  border: none;
-  color: #fff;
-  cursor: pointer;
-  font-size: 14px;
-  line-height: 1;
-  border-radius: 3px;
-}
-.btn-mini:hover { background: #22c55e; }
-.day-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px;
-  background: rgba(30, 41, 59, 0.6);
-  margin-bottom: 4px;
-  cursor: pointer;
-  border-left: 3px solid transparent;
-  transition: all 0.2s;
-  border-radius: 3px;
-  position: relative;
-  min-width: 0;
-  box-sizing: border-box;
-}
-.day-item:hover {
-  background: rgba(51, 65, 85, 0.8);
-  border-left-color: #4ade80;
-}
-.day-item.active {
-  background: rgba(22, 163, 74, 0.6);
-  border-left-color: #4ade80;
-}
-.day-icon {
-  font-size: 14px;
-  flex-shrink: 0;
-}
-.day-name {
-  flex: 1;
-  font-size: 13px;
-  font-family: monospace;
-  color: #fff;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-.scene-count {
-  font-size: 11px;
-  color: #94a3b8;
-  background: rgba(0,0,0,0.3);
-  padding: 2px 6px;
-  border-radius: 10px;
-  flex-shrink: 0;
-}
+.btn-janusz:hover { background: #1a2e25; }
+.btn-janusz.text { display: flex; flex-direction: column; }
+.btn-janusz small { font-size: 10px; color: #7D8590; }
+.section-header h4 { margin: 0; font-size: 11px; color: #00FF94; letter-spacing: 1px; }
+.asset-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.btn-asset { height: 34px; background: #21262D; border: 1px solid #30363D; color: #cbd5e1; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer; }
+.btn-asset:hover { border-color: #484F58; color: white; }
+.asset-count { font-size: 10px; color: #484F58; text-align: center; }
+.asset-category { margin-top: 8px; }
+.category-header { display: flex; gap: 6px; align-items: center; padding: 6px 8px; background: #161B22; border: 1px solid #21262D; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 700; color: #E6EDF3; }
+.category-header.count { margin-left: auto; color: #7D8590; font-weight: 400; }
+.asset-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; max-height: 180px; overflow-y: auto; }
+.asset-item { display: flex; align-items: center; gap: 6px; background: #161B22; border-radius: 4px; padding: 4px; }
+.asset-item img { width: 28px; height: 28px; object-fit: cover; border-radius: 3px; }
+.asset-item.name { flex: 1; font-size: 11px; font-family: monospace; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.btn-del { width: 18px; height: 18px; background: #dc2626; color: white; border: 0; border-radius: 3px; cursor: pointer; font-size: 10px; }
+.empty { font-size: 11px; color: #484F58; font-style: italic; padding: 8px; text-align: center; }
+.day-item { display: flex; justify-content: space-between; padding: 6px 8px; background: #161B22; border-radius: 4px; font-size: 12px; cursor: pointer; border-left: 2px solid transparent; }
+.day-item:hover { border-left-color: #00FF94; }
+.day-item.active { background: #1a2e25; border-left-color: #00FF94; }
+.badge { background: #000; padding: 1px 6px; border-radius: 10px; font-size: 10px; color: #7D8590; }
 </style>
