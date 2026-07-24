@@ -18,6 +18,10 @@ export function DeleteDay(arg1, arg2) {
   return window['go']['main']['App']['DeleteDay'](arg1, arg2);
 }
 
+export function DeleteFile(arg1, arg2) {
+  return window['go']['main']['App']['DeleteFile'](arg1, arg2);
+}
+
 export function GetDefaultProjectPath() {
   return window['go']['main']['App']['GetDefaultProjectPath']();
 }

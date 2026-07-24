@@ -4,7 +4,8 @@ import {
   ReadJSON,
   WriteJSON,
   ListFiles,
-  ListAssets
+  ListAssets,
+  DeleteFile
 } from '../../wailsjs/go/main/App'
 
 interface Choice {
@@ -44,6 +45,7 @@ export interface AvatarRule {
   use: string
   if: Partial<Record<StatName, ConditionOp>>
   priority: number
+  when?: any
 }
 
 export interface AvatarSystem {
@@ -58,13 +60,13 @@ interface ProjectMeta {
   engineVersion: string
   startDay: string
   startScene: string
-  avatarSystem?: AvatarSystem
 }
 
 export const useProjectStore = defineStore('project', {
   state: () => ({
     projectPath: null as string | null,
     meta: null as ProjectMeta | null,
+    avatarSystem: { default: '', rules: [] } as AvatarSystem,
     days: {} as Record<string, Scene[]>,
     currentDay: 'day1' as string,
     currentSceneId: null as string | null,
@@ -74,9 +76,7 @@ export const useProjectStore = defineStore('project', {
       sounds: [] as string[]
     },
     saveStatus: '',
-    ui: {
-      showAvatarEditor: false
-    }
+    ui: { showAvatarEditor: false }
   }),
 
   getters: {
@@ -88,50 +88,40 @@ export const useProjectStore = defineStore('project', {
     },
     sceneIdsInCurrentDay: (state) => (state.days[state.currentDay] || []).map((s: Scene) => s.Id),
     dayFileList: (state) => Object.keys(state.days),
-
-    // ASSETY - rozróżnienie po prefiksie, wszystko w jednym folderze images/
     backgroundAssets: (state) => state.assets.all.filter(a => a.includes('bg_')),
     reactionAssets: (state) => state.assets.all.filter(a => a.includes('re_')),
     avatarAssets: (state) => state.assets.all.filter(a => a.includes('av_')),
-
     availableBackgrounds: (state) => state.assets.all.filter(a => a.includes('bg_')),
     availableSounds: (state) => state.assets.sounds,
-
-    avatarSystem(state): AvatarSystem {
-      if (state.meta?.avatarSystem) return state.meta.avatarSystem
-      return { default: state.assets.all.filter(a => a.includes('av_'))[0] || '', rules: [] }
-    },
     sortedAvatarRules(state): AvatarRule[] {
-      const rules = state.meta?.avatarSystem?.rules || []
-      return [...rules].sort((a, b) => b.priority - a.priority)
+      return [...state.avatarSystem.rules].sort((a, b) => b.priority - a.priority)
     }
   },
 
   actions: {
-    selectScene(sceneId: string) {
-      this.currentSceneId = sceneId
-    },
-
+    selectScene(sceneId: string) { this.currentSceneId = sceneId },
     ensureChoiceIds(scene: Scene) {
       scene.Choices?.forEach((c) => { if (!c.id) c.id = crypto.randomUUID() })
     },
 
     ensureAvatarSystem() {
-      if (!this.meta) return
-      if (!this.meta.avatarSystem) {
-        this.meta.avatarSystem = { default: this.avatarAssets[0] || '', rules: [] }
-      }
-      if (!this.meta.avatarSystem.default && this.avatarAssets.length) {
-        this.meta.avatarSystem.default = this.avatarAssets[0]
+      if (!this.avatarSystem) this.avatarSystem = { default: '', rules: [] }
+      if (!this.avatarSystem.rules) this.avatarSystem.rules = []
+      this.avatarSystem.rules.forEach((r: any) => {
+        if (!r.if && r.when) { r.if = r.when; delete r.when }
+        if (!r.if) r.if = { Cebula: { gte: 50 } }
+        if (!r.id) r.id = crypto.randomUUID()
+        if (r.priority === undefined) r.priority = 50
+        r.use = (r.use || '').replace(/\\/g, '/')
+      })
+      this.avatarSystem.default = (this.avatarSystem.default || '').replace(/\\/g, '/')
+      if (!this.avatarSystem.default && this.avatarAssets.length) {
+        this.avatarSystem.default = this.avatarAssets[0]
       }
     },
 
     async loadAssets() {
-      if (!this.projectPath) {
-        this.assets.all = []
-        this.assets.images = []
-        return
-      }
+      if (!this.projectPath) { this.assets.all = []; this.assets.images = []; return }
       try {
         const list = await ListAssets(this.projectPath)
         this.assets.all = list || []
@@ -139,8 +129,7 @@ export const useProjectStore = defineStore('project', {
         this.ensureAvatarSystem()
       } catch (e) {
         console.error('[STORE] Błąd ładowania assetów:', e)
-        this.assets.all = []
-        this.assets.images = []
+        this.assets.all = []; this.assets.images = []
       }
     },
 
@@ -150,21 +139,73 @@ export const useProjectStore = defineStore('project', {
       return fullProjectPath
     },
 
+    async deleteDay(dayId: string) {
+      if (this.dayFileList.length <= 1) {
+        alert('Musisz zostawić minimum 1 dzień!')
+        return
+      }
+      // 1. skasuj fizycznie plik
+      if (this.projectPath) {
+        try {
+          await DeleteFile(this.projectPath, `Data/${dayId}.json`)
+        } catch (e) {
+          console.warn('Nie udało się skasować pliku dnia:', e)
+        }
+      }
+      // 2. skasuj z RAMu - dayFileList to getter, więc nie przypisujemy
+      delete this.days[dayId]
+
+      if (this.currentDay === dayId) {
+        this.currentDay = Object.keys(this.days)[0]
+        this.currentSceneId = this.days[this.currentDay]?.[0]?.Id || null
+      }
+    },
+
     async loadProjectFromPath(path: string) {
       this.projectPath = path
       try {
         const metaRaw = await ReadJSON(`${path}/project.janproj`)
-        this.meta = JSON.parse(metaRaw) as ProjectMeta
-        if (!this.meta.avatarSystem) {
-          this.meta.avatarSystem = { default: '', rules: [] }
+        const parsed = JSON.parse(metaRaw) as any
+
+        this.meta = {
+          gameName: parsed.gameName || '',
+          author: parsed.author || '',
+          version: parsed.version || '1.0.0',
+          engineVersion: parsed.engineVersion || '2.0.0',
+          startDay: parsed.startDay || 'day1',
+          startScene: parsed.startScene || 'start',
         }
-        const day1Raw = await ReadJSON(`${path}/Data/day1.json`)
-        const day1Data = JSON.parse(day1Raw) as Scene[]
-        day1Data.forEach((s) => this.ensureChoiceIds(s))
-        this.days = { day1: day1Data }
-        this.currentDay = this.meta.startDay || 'day1'
+
+        const av = parsed.avatarSystem || { default: '', rules: [] }
+        this.avatarSystem = {
+          default: av.default || '',
+          rules: Array.isArray(av.rules)? av.rules : []
+        }
+
+        let dayFiles: string[] = []
+        try { dayFiles = await ListFiles(`${path}/Data`, '.json') || [] } catch { dayFiles = ['day1.json'] }
+
+        this.days = {}
+        for (const file of dayFiles) {
+          const dayName = file.replace('.json','')
+          try {
+            const raw = await ReadJSON(`${path}/Data/${file}`)
+            const data = JSON.parse(raw) as Scene[]
+            data.forEach((s) => this.ensureChoiceIds(s))
+            this.days[dayName] = data
+          } catch (e) { console.warn(`Nie udało się wczytać ${file}`, e) }
+        }
+        if (!Object.keys(this.days).length) {
+          const day1Raw = await ReadJSON(`${path}/Data/day1.json`)
+          const day1Data = JSON.parse(day1Raw) as Scene[]
+          day1Data.forEach((s) => this.ensureChoiceIds(s))
+          this.days = { day1: day1Data }
+        }
+
+        this.currentDay = this.meta.startDay || Object.keys(this.days)[0] || 'day1'
         this.currentSceneId = this.meta.startScene || this.days[this.currentDay]?.[0]?.Id || null
         await this.loadAssets()
+        this.ensureAvatarSystem()
       } catch (e) {
         console.error('[STORE] Błąd ładowania projektu:', e)
         this.projectPath = null
@@ -178,19 +219,37 @@ export const useProjectStore = defineStore('project', {
         const mp3 = (await ListFiles(`${this.projectPath}/sounds`, '.mp3')) || []
         const wav = (await ListFiles(`${this.projectPath}/sounds`, '.wav')) || []
         this.assets.sounds = [...mp3,...wav]
-      } catch {
-        this.assets.sounds = []
-      }
+      } catch { this.assets.sounds = [] }
     },
 
     async saveProject() {
       if (!this.projectPath ||!this.meta) return
       this.saveStatus = 'Zapisywanie...'
       try {
-        await WriteJSON(`${this.projectPath}/project.janproj`, JSON.stringify(this.meta, null, 2))
+        this.ensureAvatarSystem()
+        const toSave = {
+        ...this.meta,
+          avatarSystem: {
+            default: this.avatarSystem.default,
+            rules: this.avatarSystem.rules
+          }
+        }
+        await WriteJSON(`${this.projectPath}/project.janproj`, JSON.stringify(toSave, null, 2))
+
+        // SPRZĄTANIE SIEROT - usuń pliki dni których już nie ma w this.days
+        try {
+          const existing = await ListFiles(`${this.projectPath}/Data`, '.json') || []
+          for (const f of existing) {
+            const name = f.replace('.json','')
+            if (!this.days[name]) {
+              await DeleteFile(this.projectPath, `Data/${f}`)
+            }
+          }
+        } catch {}
+
         for (const dayFile of Object.keys(this.days)) {
           const cleaned = this.days[dayFile].map((scene) => ({
-           ...scene,
+         ...scene,
             Choices: scene.Choices?.map((c: any) => { const { id,...rest } = c; return rest })
           }))
           await WriteJSON(`${this.projectPath}/Data/${dayFile}.json`, JSON.stringify(cleaned, null, 2))
@@ -203,40 +262,32 @@ export const useProjectStore = defineStore('project', {
       }
     },
 
-    setDefaultAvatar(path: string) {
-      this.ensureAvatarSystem()
-      if (this.meta?.avatarSystem) this.meta.avatarSystem.default = path
-    },
-
+    setDefaultAvatar(path: string) { this.avatarSystem.default = path.replace(/\\/g,'/') },
     addAvatarRule(imagePath?: string) {
-      this.ensureAvatarSystem()
-      this.meta!.avatarSystem!.rules.push({
+      const maxPrio = Math.max(0,...this.avatarSystem.rules.map(r => r.priority))
+      this.avatarSystem.rules.push({
         id: crypto.randomUUID(),
-        use: imagePath || this.avatarAssets[0] || '',
+        use: (imagePath || this.avatarAssets[0] || '').replace(/\\/g,'/'),
         if: { Cebula: { gte: 50 } },
-        priority: 50
+        priority: maxPrio + 10
       })
     },
-
     updateAvatarRule(ruleId: string, patch: Partial<AvatarRule>) {
-      const rule = this.meta?.avatarSystem?.rules.find(r => r.id === ruleId)
+      const rule = this.avatarSystem.rules.find(r => r.id === ruleId)
       if (rule) Object.assign(rule, patch)
     },
-
     deleteAvatarRule(ruleId: string) {
-      if (!this.meta?.avatarSystem) return
-      this.meta.avatarSystem.rules = this.meta.avatarSystem.rules.filter(r => r.id!== ruleId)
+      this.avatarSystem.rules = this.avatarSystem.rules.filter(r => r.id!== ruleId)
     },
-
     closeProject() {
       this.projectPath = null
       this.meta = null
+      this.avatarSystem = { default: '', rules: [] }
       this.days = {}
       this.currentDay = 'day1'
       this.currentSceneId = null
       this.assets = { all: [], images: [], sounds: [] }
     },
-
     addSceneToCurrentDay(sceneId?: string) {
       const newId = sceneId || `scene_${Date.now()}`
       const newScene: Scene = { Id: newId, SceneTitle: newId, Background: '', Text: '', Choices: [] }
@@ -244,7 +295,6 @@ export const useProjectStore = defineStore('project', {
       this.days[this.currentDay].push(newScene)
       this.currentSceneId = newId
     },
-
     duplicateScene(sceneId: string) {
       const scenes = this.days[this.currentDay]
       if (!scenes) return
@@ -257,7 +307,6 @@ export const useProjectStore = defineStore('project', {
       scenes.splice(scenes.findIndex(s => s.Id === sceneId) + 1, 0, copy)
       this.currentSceneId = copy.Id
     },
-
     deleteScene(sceneId: string) {
       const scenes = this.days[this.currentDay]
       if (!scenes || scenes.length <= 1) { alert('Nie możesz usunąć ostatniej sceny'); return }
@@ -267,12 +316,10 @@ export const useProjectStore = defineStore('project', {
         if (this.currentSceneId === sceneId) this.currentSceneId = scenes[0]?.Id || null
       }
     },
-
     updateCurrentScene(field: keyof Scene, value: any) {
       if (!this.currentScene) return
       ;(this.currentScene as any)[field] = value
     },
-
     addDay(dayId: string) {
       if (this.days[dayId]) { alert('Dzień już istnieje'); return }
       this.days[dayId] = [{ Id: 'start', SceneTitle: 'Start', Background: '', Text: 'Początek dnia', Choices: [] }]

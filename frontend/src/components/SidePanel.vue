@@ -49,6 +49,16 @@ function handleAddDay() {
   store.addDay(id)
   store.saveProject()
 }
+async function handleDeleteDay(e: Event, day: string) {
+  e.stopPropagation()
+  if (store.dayFileList.length <= 1) {
+    alert('Musisz zostawić minimum 1 dzień!')
+    return
+  }
+  if (!confirm(`Na pewno usunąć dzień "${day}"?`)) return
+  await store.deleteDay(day)
+  await store.saveProject()
+}
 
 onMounted(refreshAssets)
 watch(() => store.projectPath, refreshAssets)
@@ -130,7 +140,10 @@ watch(() => store.projectPath, refreshAssets)
       <div class="section-header"><h4>DNI [{{ store.dayFileList.length }}]</h4></div>
       <div v-for="day in store.dayFileList" :key="day" :class="['day-item', { active: day === store.currentDay }]" @click="selectDay(day)">
         <span>📁 {{ day }}</span>
-        <span class="badge">{{ store.days[day]?.length || 0 }}</span>
+        <div class="day-right">
+          <span class="badge">{{ store.days[day]?.length || 0 }}</span>
+          <button @click="handleDeleteDay($event, day)" class="btn-del-day" title="Usuń dzień">✕</button>
+        </div>
       </div>
     </div>
   </aside>
@@ -147,10 +160,10 @@ watch(() => store.projectPath, refreshAssets)
   background:#161B22;border:1px solid #00FF94;border-radius:6px;padding:10px 12px;
   color:#E6EDF3;cursor:pointer;text-align:left;box-sizing:border-box
 }
-.btn-janusz .icon{font-size:18px;flex:0 0 18px;line-height:1}
-.btn-janusz .text{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;line-height:1.15}
-.btn-janusz .text b{font-size:11px;letter-spacing:.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.btn-janusz .text small{font-size:10px;color:#7D8590;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:400}
+.btn-janusz.icon{font-size:18px;flex:0 0 18px;line-height:1}
+.btn-janusz.text{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;line-height:1.15}
+.btn-janusz.text b{font-size:11px;letter-spacing:.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btn-janusz.text small{font-size:10px;color:#7D8590;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:400}
 .btn-janusz:hover{background:#1a2e25}.section-header h4{margin:0;font-size:11px;color:#00FF94;letter-spacing:1px}
 .asset-buttons{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
 .btn-asset{height:34px;background:#21262D;border:1px solid #30363D;color:#cbd5e1;border-radius:4px;font-size:11px;font-weight:700;cursor:pointer}
@@ -167,7 +180,10 @@ watch(() => store.projectPath, refreshAssets)
 .name{flex:1;font-size:10px;font-family:monospace;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .btn-del{width:18px;height:18px;background:#dc2626;color:white;border:0;border-radius:3px;cursor:pointer;font-size:10px}
 .empty{font-size:11px;color:#484F58;font-style:italic;padding:8px;text-align:center}
-.day-item{display:flex;justify-content:space-between;padding:6px 8px;background:#161B22;border-radius:4px;font-size:12px;cursor:pointer;border-left:2px solid transparent}
+.day-item{display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:#161B22;border-radius:4px;font-size:12px;cursor:pointer;border-left:2px solid transparent;gap:8px}
 .day-item:hover{border-left-color:#00FF94}.day-item.active{background:#1a2e25;border-left-color:#00FF94}
+.day-right{display:flex;align-items:center;gap:6px}
 .badge{background:#000;padding:1px 6px;border-radius:10px;font-size:10px;color:#7D8590}
+.btn-del-day{width:18px;height:18px;background:#2A1215;border:1px solid #3A1A20;color:#FF8A9B;border-radius:3px;cursor:pointer;font-size:10px;line-height:1}
+.btn-del-day:hover{background:#dc2626;color:white;border-color:#dc2626}
 </style>

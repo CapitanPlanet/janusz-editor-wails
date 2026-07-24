@@ -424,7 +424,13 @@ func (a *App) AddRecentProject(path string) error {
 	runtime.LogInfo(a.ctx, "[APP] Zapisuję recent: "+path)
 	return os.WriteFile(configFile, data, 0644)
 }
-
+func (a *App) DeleteFile(projectPath string, relativePath string) error {
+	full := filepath.Join(projectPath, relativePath)
+	if _, err := os.Stat(full); os.IsNotExist(err) {
+		return nil
+	}
+	return os.Remove(full)
+}
 // LISTA PLIKÓW W FOLDERZE
 func (a *App) ListFiles(folderPath string, extension string) ([]string, error) {
 	runtime.LogInfo(a.ctx, "[APP] Skanuję: "+folderPath+" szukam: "+extension)
